@@ -1,0 +1,33 @@
+Local Transcriber for macOS
+===========================
+
+English
+-------
+1. Open the DMG file.
+2. Drag LocalTranscriber.app into the Applications folder.
+3. Open LocalTranscriber from Applications.
+4. The first launch downloads an AI model selected for this Mac.
+5. Select or drop an audio/video file and click "Start transcription".
+
+You can switch between English and Japanese in the top-right corner.
+Transcription runs on this Mac. An internet connection is only required for
+the first model download.
+
+If macOS warns that the app cannot be opened, use only a signed and notarized
+release build from a trusted source.
+
+
+日本語
+------
+1. DMGファイルを開いてください。
+2. LocalTranscriber.appをApplicationsフォルダーへドラッグしてください。
+3. ApplicationsフォルダーからLocalTranscriberを開いてください。
+4. 初回起動時に、このMacに適したAIモデルをダウンロードします。
+5. 音声・動画ファイルを選び、「文字起こしを開始」を押してください。
+
+画面右上で日本語と英語を切り替えられます。
+文字起こし処理はこのMac内で行います。インターネット接続が必要なのは、
+初回のモデルダウンロード時だけです。
+
+macOSから開けない旨の警告が表示される場合は、信頼できる配布元から入手した
+署名・公証済みのリリース版だけを使用してください。

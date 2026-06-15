@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Local Transcriber app icon</title>
+  <desc id="desc">A green rounded-square app icon with white speech waveform bars.</desc>
+  <defs>
+    <linearGradient id="background" x1="176" y1="132" x2="848" y2="892" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f6f4f"/>
+      <stop offset="1" stop-color="#153f31"/>
+    </linearGradient>
+    <filter id="shadow" x="80" y="80" width="864" height="864" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="30" stdDeviation="36" flood-color="#0f261e" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect x="112" y="112" width="800" height="800" rx="216" fill="url(#background)" filter="url(#shadow)"/>
+  <path
+    d="M268 546V478M348 642V382M428 720V304M508 662V362M588 704V320M668 622V402M748 546V478"
+    fill="none"
+    stroke="#fffef9"
+    stroke-width="74"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>

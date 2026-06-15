@@ -114,11 +114,11 @@ const translations = {
     localProcessing: "ローカル処理",
     heroTitle: "音声と動画を、<br><span>手元で文字に。</span>",
     heroDescription:
-      "ファイルを選ぶだけで、このPC上で文字起こしします。難しい設定やAPIキーは必要ありません。",
+      "ファイルを選ぶだけで、この端末上で文字起こしします。難しい設定やAPIキーは必要ありません。",
     setupTitle: "文字起こしの準備をしています",
     setupDescription:
-      "このPCに適したAIモデルを自動で選び、ダウンロードしています。初回だけ数分かかることがあります。",
-    setupChecking: "PCの構成を確認しています。",
+      "この端末に適したAIモデルを自動で選び、ダウンロードしています。初回だけ数分かかることがあります。",
+    setupChecking: "端末の構成を確認しています。",
     setupStarting: "初回セットアップを開始します。",
     setupDownloading: "文字起こしモデルをダウンロードしています。",
     setupReady: "文字起こしの準備ができました。",
@@ -144,13 +144,13 @@ const translations = {
     featuresLabel: "サービスの特徴",
     privateTitle: "プライベート",
     privateDescription:
-      "推論処理はこのPC内で完結。処理後の元ファイルは自動削除されます。",
+      "推論処理はこの端末内で完結。処理後の元ファイルは自動削除されます。",
     formatsTitle: "複数形式",
     formatsDescription:
       "音声・動画に対応し、TXT、SRT、VTT、JSONとして書き出せます。",
     automaticTitle: "自動セットアップ",
     automaticDescription:
-      "PCのメモリに合わせて、適切なモデルを自動で準備します。",
+      "端末のメモリに合わせて、適切なモデルを自動で準備します。",
     poweredBy: "Powered by 株式会社KOIYAL",
     offlineAfterSetup: "初回セットアップ後はオフラインでも利用できます。",
     contactDescription:

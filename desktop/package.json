@@ -8,11 +8,13 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "package:electron": "electron-packager . LocalTranscriber --platform=win32 --arch=x64 --out=../dist/electron --overwrite --asar --extra-resource=../dist/backend/local-transcriber-backend"
+    "package:electron": "electron-packager . LocalTranscriber --platform=win32 --arch=x64 --out=../dist/electron --overwrite --asar --icon=../assets/app-icon.ico --extra-resource=../dist/backend/local-transcriber-backend"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.1",
-    "@microsoft/winappcli": "^0.3.2",
     "electron": "^42.4.0"
+  },
+  "optionalDependencies": {
+    "@microsoft/winappcli": "^0.3.2"
   }
 }

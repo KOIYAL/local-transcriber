@@ -1,13 +1,13 @@
 # Local Transcriber
 
-音声・動画ファイルを `faster-whisper` で文字起こしするWindowsアプリです。
-推論はPC内で実行され、外部の文字起こしAPIやAPIキーは必要ありません。
+音声・動画ファイルを `faster-whisper` で文字起こしするWindows / macOSアプリです。
+推論は端末内で実行され、外部の文字起こしAPIやAPIキーは必要ありません。
 
 ## 主な機能
 
 - 音声・動画ファイルのドラッグ＆ドロップ
-- Windows・ブラウザの言語に応じた日本語 / English表示と手動切替
-- PCのメモリに応じたWhisperモデルの自動選択と初回ダウンロード
+- OS・ブラウザの言語に応じた日本語 / English表示と手動切替
+- PC/Macのメモリに応じたWhisperモデルの自動選択と初回ダウンロード
 - 言語の自動検出
 - 無音区間の自動除外
 - 処理状況とタイムスタンプ付きセグメントの表示
@@ -41,9 +41,35 @@ dist\electron\LocalTranscriber-win32-x64
 Python, Node.js, an API key, and a separate ffmpeg installation are not required.
 After the first setup, transcription can run offline.
 
+## 一般ユーザー向けmacOSアプリ
+
+Mac版はDMGとして生成されます。
+
+```text
+dist/LocalTranscriber-macOS-<arch>.dmg
+```
+
+利用者はDMGを開き、`LocalTranscriber.app` をApplicationsフォルダーへ
+ドラッグしてから起動します。Python、Node.js、ffmpegのインストールは不要です。
+
+初回起動時のみ、Macのメモリに合わせたモデルを自動でダウンロードします。
+準備完了後は、ファイルを選んで「文字起こしを開始」を押すだけです。
+DMGにはMac向けの案内として `START_HERE_MAC.txt` も同梱されます。
+
+### English quick start for macOS
+
+1. Open the DMG file.
+2. Drag `LocalTranscriber.app` into Applications.
+3. Open Local Transcriber from Applications.
+4. On the first launch, wait while the app downloads a model selected for the Mac.
+5. Select or drop an audio/video file, then click **Start transcription**.
+
+Python, Node.js, an API key, and a separate ffmpeg installation are not required.
+After the first setup, transcription can run offline.
+
 モデルの自動選択基準:
 
-| PCのメモリ | 使用モデル |
+| PC/Macのメモリ | 使用モデル |
 | --- | --- |
 | 8GB未満 | Tiny |
 | 8GB以上 | Base |
@@ -52,6 +78,23 @@ After the first setup, transcription can run offline.
 
 モデルはユーザーごとのアプリデータ領域に保存されます。アプリを更新しても、
 同じモデルを再ダウンロードする必要はありません。
+
+## アプリアイコン
+
+アプリアイコン素材は `assets/` にあります。
+
+| ファイル | 用途 |
+| --- | --- |
+| `assets/app-icon.svg` | 編集用の元データ |
+| `assets/app-icon.png` | 1024pxのプレビュー/汎用PNG |
+| `assets/app-icon.icns` | macOSアプリ用 |
+| `assets/app-icon.ico` | Windowsアプリ用 |
+
+アイコンを書き換えた場合は、次のコマンドでPNG、ICNS、ICOを再生成できます。
+
+```bash
+.venv/bin/python scripts/generate_app_icons.py
+```
 
 ## 必要環境
 
@@ -216,6 +259,12 @@ cd local-transcriber
 ./build-macos.sh
 ```
 
+`python3` が3.10未満の環境では、対応するPythonを明示できます。
+
+```bash
+PYTHON=/opt/homebrew/bin/python3.12 ./build-macos.sh
+```
+
 実行中のMacに合わせて、Apple Siliconでは`arm64`、Intel Macでは`x64`版を
 生成します。出力先は次のとおりです。
 
@@ -223,6 +272,9 @@ cd local-transcriber
 dist/electron/LocalTranscriber-darwin-<arch>/LocalTranscriber.app
 dist/LocalTranscriber-macOS-<arch>.dmg
 ```
+
+DMGには `LocalTranscriber.app`、Applicationsへのショートカット、
+`START_HERE_MAC.txt` が含まれます。
 
 一般配布用の署名済みDMGを作る場合は、Apple Developer Programへ登録し、
 Developer ID Application証明書と公証用のキーチェーンプロファイルを用意します。
@@ -239,6 +291,7 @@ export MAC_NOTARY_PROFILE="koiyal-notary"
 
 Mac App Store版はApp Sandbox、ファイルアクセス権限、同梱バックエンドの署名に
 追加対応が必要です。まずはDeveloper IDで署名・公証したDMGによる配布を推奨します。
+リリース時の確認項目は `MAC_RELEASE.md` を参照してください。
 
 ## API
 

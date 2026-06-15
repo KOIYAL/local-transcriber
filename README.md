@@ -202,8 +202,17 @@ Store申請用の入力例と`runFullTrust`の説明文は
 Mac版はmacOS上でビルドします。Xcode Command Line Tools、Python 3.10以上、
 Node.jsが必要です。
 
+PrivateリポジトリへアクセスできるGitHubアカウントで認証してからcloneします。
+
 ```bash
-chmod +x build-macos.sh
+gh auth login
+gh repo clone alancodvo/local-transcriber
+cd local-transcriber
+```
+
+ビルドを実行します。
+
+```bash
 ./build-macos.sh
 ```
 

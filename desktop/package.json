@@ -1,0 +1,18 @@
+{
+  "name": "local-transcriber-desktop",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Simple local audio and video transcription for Windows and macOS",
+  "main": "main.js",
+  "author": "Local Transcriber",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "package:electron": "electron-packager . LocalTranscriber --platform=win32 --arch=x64 --out=../dist/electron --overwrite --asar --extra-resource=../dist/backend/local-transcriber-backend"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.1",
+    "@microsoft/winappcli": "^0.3.2",
+    "electron": "^42.4.0"
+  }
+}

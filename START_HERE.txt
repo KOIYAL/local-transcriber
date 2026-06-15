@@ -1,0 +1,32 @@
+Local Transcriber
+=================
+
+English
+-------
+1. Extract the complete ZIP archive before running the app.
+2. Double-click LocalTranscriber.exe.
+3. The first launch downloads an AI model selected for this PC.
+4. Select or drop an audio/video file and click "Start transcription".
+
+The app automatically uses English on non-Japanese Windows installations.
+You can switch between English and Japanese in the top-right corner.
+Transcription runs on this PC. An internet connection is only required for
+the first model download.
+
+If Windows SmartScreen appears, choose "More info" and then "Run anyway"
+only when you received this app from a trusted source.
+
+
+日本語
+------
+1. ZIPファイルをすべて展開してください。
+2. LocalTranscriber.exeをダブルクリックしてください。
+3. 初回起動時に、このPCに適したAIモデルをダウンロードします。
+4. 音声・動画ファイルを選び、「文字起こしを開始」を押してください。
+
+画面右上で日本語と英語を切り替えられます。
+文字起こし処理はこのPC内で行います。インターネット接続が必要なのは、
+初回のモデルダウンロード時だけです。
+
+Windows SmartScreenが表示された場合は、信頼できる配布元から受け取った
+ファイルであることを確認してから「詳細情報」→「実行」を選択してください。

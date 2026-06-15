@@ -1,0 +1,237 @@
+# Microsoft Store submission notes
+
+## Product name
+
+文字起こし - 買い切りのみのサブスクなし
+
+## Pricing
+
+- Paid app
+- One-time purchase
+- No subscriptions
+- No in-app purchases
+
+Partner Centerでは有料価格を設定し、次は追加しません。
+
+- Subscription add-on
+- Durable add-on
+- Consumable add-on
+- Free trial（無料試用を提供しない場合）
+
+## Store listing - Japanese
+
+### Product name
+
+文字起こし - 買い切りのみのサブスクなし
+
+### Short description
+
+音声・動画ファイルをPC内で文字起こし。買い切りで、サブスクリプションやAPIキーは不要です。
+
+### Description
+
+「文字起こし - 買い切りのみのサブスクなし」は、音声・動画ファイルを
+Windows PC上で文字に変換するシンプルなアプリです。
+
+ファイルを選択するだけで、PCのメモリに適したAIモデルを自動で準備し、
+音声の言語を検出して文字起こしします。専門的なモデル設定やAPIキーは
+必要ありません。
+
+主な機能:
+
+- 音声・動画ファイルの文字起こし
+- 日本語・英語などの音声言語を自動検出
+- PCのメモリに応じたAIモデルの自動選択
+- TXT、SRT、VTT、JSON形式での書き出し
+- 処理結果の全文コピー
+- 初回セットアップ後のオフライン文字起こし
+- 日本語・英語の画面表示
+
+文字起こし処理はPC内で行われます。選択した音声・動画ファイルを
+外部の文字起こしAPIへ送信することはありません。初回起動時のみ、
+文字起こしに使用するAIモデルをダウンロードします。
+
+本製品は買い切りです。月額・年額サブスクリプション、アプリ内課金、
+外部APIの利用料金はありません。
+
+### Product features
+
+- PC内で完結するローカルAI文字起こし
+- 音声・動画ファイルに対応
+- ドラッグ＆ドロップまたはファイル選択で簡単操作
+- PCのメモリに応じてAIモデルを自動選択
+- 初回起動時に必要なAIモデルを自動ダウンロード
+- 音声の言語を自動検出
+- 無音区間を自動で除外
+- タイムスタンプ付きで文字起こし結果を表示
+- TXT形式で書き出し
+- 字幕用SRT形式で書き出し
+- Web字幕用VTT形式で書き出し
+- 詳細データをJSON形式で書き出し
+- 文字起こし結果の全文をワンクリックでコピー
+- 初回セットアップ後はオフラインで文字起こし可能
+- アカウント登録・ログイン不要
+- APIキーや外部APIの利用料金不要
+- 選択したファイルを外部の文字起こしAPIへ送信しない設計
+- 処理後に元ファイルの一時コピーを自動削除
+- 日本語・英語の画面表示に対応
+- 買い切りで月額・年額サブスクリプションなし
+
+### Search terms
+
+文字起こし, 音声認識, 音声テキスト化, 動画文字起こし, 字幕, SRT, VTT, Whisper
+
+### Support contact
+
+- Website: https://koiyal.com/
+- Contact form: https://repoan.com/f/37a22b84-4251-4e04-a363-27d650428684
+- X: https://x.com/KOIYAL_AI
+
+お問い合わせはウェブサイトのお問い合わせフォーム、またはXのDMで
+受け付けています。
+
+### Privacy policy URL
+
+https://koiyal.com/footer/privacy
+
+## Store listing - English
+
+### Description
+
+Transcribe audio and video privately on your Windows PC.
+
+Local Transcriber is a simple desktop app that converts audio and video files
+into timestamped text. Select or drag and drop a file, then start
+transcription. No account, sign-in, API key, or advanced AI model settings are
+required.
+
+On the first launch, the app checks the computer's memory, selects an
+appropriate AI model, and downloads it automatically. Once setup is complete,
+transcription can run offline.
+
+The app automatically detects the spoken language and displays the result in
+timestamped segments. Completed transcripts can be copied in full or exported
+as TXT, SRT, VTT, or JSON files.
+
+Transcription is processed locally on the PC. The selected audio or video file
+is not sent to an external transcription API, and the temporary source copy
+created for processing is deleted when processing finishes.
+
+This is a one-time purchase. There are no monthly or annual subscriptions,
+in-app purchases, or external API usage fees.
+
+### Product features
+
+- Local AI transcription processed on your PC
+- Supports audio and video files
+- Simple drag-and-drop or file selection
+- Automatically selects an AI model based on available memory
+- Automatically downloads the required AI model on first launch
+- Automatically detects the spoken language
+- Automatically skips silent sections
+- Displays timestamped transcription segments
+- Export transcripts as TXT
+- Export subtitles as SRT
+- Export web captions as VTT
+- Export detailed transcription data as JSON
+- Copy the complete transcript with one click
+- Transcribe offline after the first-time setup
+- No account or sign-in required
+- No API key or external API usage fees
+- Selected files are not sent to an external transcription API
+- Deletes the temporary source copy after processing
+- Japanese and English interface
+- One-time purchase with no monthly or annual subscription
+
+## Age ratings
+
+通常のユーティリティアプリとして、暴力、性的表現、ギャンブル、
+薬物、恐怖表現、ユーザー間コミュニケーション、位置情報共有などは
+「なし」に該当します。
+
+本アプリはユーザーが所有または利用権限を持つ音声・動画ファイルを
+処理するツールです。アプリ自体が成人向けコンテンツを提供するものでは
+ありません。
+
+## Required Partner Center identity values
+
+Open:
+
+`Partner Center > Product management > Product identity`
+
+Copy these values exactly:
+
+- `Package/Identity/Name`
+- `Package/Identity/Publisher`
+- `Package/Properties/PublisherDisplayName`
+
+The publisher display name for this app is:
+
+`株式会社KOIYAL`
+
+## Build the Store MSIX
+
+Set the two product-specific values before running the packaging command:
+
+```powershell
+$env:STORE_IDENTITY_NAME = "Copy Package/Identity/Name here"
+$env:STORE_PUBLISHER = "Copy Package/Identity/Publisher here"
+.\package-msix.cmd
+```
+
+Output:
+
+```text
+dist\KOIYAL-Transcriber-Store.msix
+```
+
+Do not upload the older `LocalTranscriber.msix`. It contains development
+identity values.
+
+## runFullTrust justification - Japanese
+
+本アプリはElectronと同梱のPython/faster-whisperバックエンドで構成された
+Win32デスクトップアプリです。ユーザーが明示的に選択した音声・動画ファイルを
+読み込み、同梱バックエンドを子プロセスとして起動して、端末上で文字起こしを
+実行するためにrunFullTrustが必要です。
+
+バックエンドはランダムに選択された127.0.0.1のポートだけで待ち受けます。
+管理者権限の要求、システム設定の変更、他アプリの操作、ユーザーが選択して
+いないファイルへのアクセスは行いません。初回セットアップ時のみ文字起こし
+モデルをダウンロードし、その後の文字起こし処理はPC内で行います。
+
+## runFullTrust justification - English
+
+This product is a packaged Win32 desktop application built with Electron and
+a bundled Python/faster-whisper backend. The runFullTrust capability is
+required to launch the bundled backend process and read audio or video files
+explicitly selected by the user for local transcription.
+
+The backend listens only on a randomly selected 127.0.0.1 port. The app does
+not request administrator privileges, change system settings, control other
+applications, or access files that the user did not select. Internet access is
+used for the first-run transcription model download. Transcription is then
+performed locally on the user's PC.
+
+## Certification notes
+
+- No account or sign-in is required.
+- No API key is required.
+- On first launch, wait for the automatic model download to complete.
+- Select an audio or video file and click `文字起こしを開始`.
+- Source files are processed locally and the temporary uploaded copy is
+  deleted after processing.
+- Support:
+  - https://koiyal.com/
+  - https://x.com/KOIYAL_AI
+
+### Certification notes - Japanese
+
+アカウント登録やログインは不要です。初回起動時にPCのメモリに応じた
+文字起こしモデルを自動でダウンロードするため、インターネット接続が
+必要です。モデル準備の完了後、音声または動画ファイルを選択し、
+「文字起こしを開始」を押すと主要機能を確認できます。
+
+ファイル選択ダイアログでユーザーが明示的に選択したファイルのみを
+処理します。文字起こしはPC内で行われ、一時的に作成された元ファイルの
+コピーは処理後に削除されます。

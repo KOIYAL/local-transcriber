@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Transcribe audio and video privately on your own computer">
+  <title>Local Transcriber</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Local Transcriber">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img">
+            <path d="M6 17v-2M10 21V11M14 25V7M18 22V10M22 19v-6M26 17v-2"/>
+          </svg>
+        </span>
+        <span data-i18n="appName">Local Transcriber</span>
+      </a>
+      <div class="header-actions">
+        <div class="language-switch" role="group" aria-label="Language">
+          <button type="button" data-locale="ja">日本語</button>
+          <button type="button" data-locale="en">English</button>
+        </div>
+        <div class="privacy-badge">
+          <span class="status-dot"></span>
+          <span data-i18n="localProcessing">Local processing</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">PRIVATE SPEECH TO TEXT</div>
+        <h1 data-i18n-html="heroTitle">Turn audio and video<br><span>into text, privately.</span></h1>
+        <p data-i18n="heroDescription">
+          Select a file and transcribe it entirely on this computer.
+          No complicated setup or API key required.
+        </p>
+      </section>
+
+      <section id="setup-panel" class="workspace setup-panel" aria-live="polite">
+        <div class="setup-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14"/>
+          </svg>
+        </div>
+        <p class="step-label">FIRST SETUP</p>
+        <h2 id="setup-title" data-i18n="setupTitle">Preparing transcription</h2>
+        <p id="setup-description" data-i18n="setupDescription">
+          The app is automatically selecting and downloading an AI model suited to this computer.
+          The first setup may take a few minutes.
+        </p>
+        <div class="progress-track setup-progress">
+          <div id="setup-progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="setup-message" data-i18n="setupChecking">Checking this computer.</p>
+        <button id="setup-retry" class="secondary-button" type="button" hidden>
+          <span data-i18n="retry">Try again</span>
+        </button>
+      </section>
+
+      <section id="workspace" class="workspace" aria-labelledby="workspace-title" hidden>
+        <div class="workspace-heading">
+          <div>
+            <p class="step-label">READY</p>
+            <h2 id="workspace-title" data-i18n="selectFile">Select a file</h2>
+          </div>
+          <p id="limit-label" class="file-limit" data-i18n="checkingLimit">Checking limit...</p>
+        </div>
+
+        <form id="transcription-form">
+          <label id="drop-zone" class="drop-zone" for="file-input">
+            <input id="file-input" name="file" type="file"
+              accept="audio/*,video/*,.m4a,.mkv,.webm,.mov" hidden>
+            <span class="upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>
+              </svg>
+            </span>
+            <strong id="drop-title" data-i18n="dropTitle">Drop a file here</strong>
+            <span id="drop-subtitle" data-i18n="dropSubtitle">or click to select audio or video</span>
+          </label>
+
+          <div id="selected-file" class="selected-file" hidden>
+            <span class="file-type-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h4"/>
+              </svg>
+            </span>
+            <div class="file-meta">
+              <strong id="file-name"></strong>
+              <span id="file-size"></span>
+            </div>
+            <button id="remove-file" class="icon-button" type="button"
+              aria-label="Remove file" data-i18n-aria-label="removeFile">×</button>
+          </div>
+
+          <button id="submit-button" class="primary-button" type="submit" disabled>
+            <span data-i18n="startTranscription">Start transcription</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14m-5-5 5 5-5 5"/>
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      <section id="progress-panel" class="progress-panel" hidden aria-live="polite">
+        <div class="progress-header">
+          <div>
+            <p class="step-label">PROCESSING</p>
+            <h2 id="progress-title" data-i18n="preparingTranscription">Preparing transcription</h2>
+          </div>
+          <strong id="progress-percent">0%</strong>
+        </div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="progress-message" data-i18n="uploadingFile">Uploading file.</p>
+      </section>
+
+      <section id="result-panel" class="result-panel" hidden>
+        <div class="result-heading">
+          <div>
+            <p class="step-label">COMPLETE</p>
+            <h2 data-i18n="transcriptionResult">Transcription result</h2>
+            <p id="result-meta"></p>
+          </div>
+          <button id="copy-button" class="secondary-button" type="button"
+            data-i18n="copyAll">Copy all</button>
+        </div>
+
+        <div id="download-buttons" class="download-buttons"></div>
+        <div id="transcript" class="transcript"></div>
+      </section>
+
+      <section class="feature-strip" aria-label="Features" data-i18n-aria-label="featuresLabel">
+        <article>
+          <span>01</span>
+          <h3 data-i18n="privateTitle">Private</h3>
+          <p data-i18n="privateDescription">Transcription stays on this computer. The temporary source copy is deleted after processing.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3 data-i18n="formatsTitle">Multiple formats</h3>
+          <p data-i18n="formatsDescription">Works with audio and video, with exports in TXT, SRT, VTT, and JSON.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3 data-i18n="automaticTitle">Automatic setup</h3>
+          <p data-i18n="automaticDescription">Automatically prepares an appropriate model based on the computer's memory.</p>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-brand">
+        <p data-i18n="poweredBy">Powered by KOIYAL, K.K.</p>
+        <p data-i18n="offlineAfterSetup">Works offline after the first setup.</p>
+      </div>
+      <div class="footer-contact">
+        <p data-i18n="contactDescription">
+          Contact us through the website contact form or by DM on X.
+        </p>
+        <nav aria-label="Contact links" data-i18n-aria-label="contactLinksLabel">
+          <a href="https://koiyal.com/" target="_blank" rel="noopener noreferrer"
+            data-i18n="websiteLink">Website</a>
+          <a href="https://x.com/KOIYAL_AI" target="_blank" rel="noopener noreferrer"
+            data-i18n="xLink">X</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

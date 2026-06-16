@@ -6,15 +6,22 @@ set "PACKAGE_DIR=dist\electron\LocalTranscriber-win32-x64"
 set "EXECUTABLE=%PACKAGE_DIR%\LocalTranscriber.exe"
 set "MANIFEST=%PACKAGE_DIR%\Package.appxmanifest"
 set "OUTPUT=dist\KOIYAL-Transcriber-Store.msix"
+set "LOGO=assets\app-icon.png"
 
 if not exist "%EXECUTABLE%" (
     echo Build the desktop app first by running build-windows.cmd.
     exit /b 1
 )
 
+if not exist "%LOGO%" (
+    echo ERROR: App icon not found: %LOGO%
+    echo Run scripts\generate_app_icons.py first.
+    exit /b 1
+)
+
 pushd "%PACKAGE_DIR%"
 if exist Package.appxmanifest del /q Package.appxmanifest
-call ..\..\..\desktop\node_modules\.bin\winapp.cmd manifest generate . --package-name LocalTranscriber --description "Local audio and video transcription" --executable "LocalTranscriber.exe"
+call ..\..\..\desktop\node_modules\.bin\winapp.cmd manifest generate . --package-name LocalTranscriber --description "Local audio and video transcription" --executable "LocalTranscriber.exe" --logo-path "..\..\..\%LOGO%"
 if errorlevel 1 (
     popd
     exit /b 1

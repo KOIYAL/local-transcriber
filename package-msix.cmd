@@ -21,6 +21,7 @@ if not exist "%LOGO%" (
 
 pushd "%PACKAGE_DIR%"
 if exist Package.appxmanifest del /q Package.appxmanifest
+if exist Assets rmdir /s /q Assets
 call ..\..\..\desktop\node_modules\.bin\winapp.cmd manifest generate . --package-name LocalTranscriber --description "Local audio and video transcription" --executable "LocalTranscriber.exe" --logo-path "..\..\..\%LOGO%"
 if errorlevel 1 (
     popd

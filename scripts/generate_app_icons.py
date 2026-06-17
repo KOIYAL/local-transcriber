@@ -15,19 +15,122 @@ ICNS_PATH = ASSETS / "app-icon.icns"
 GREEN_TOP = (47, 111, 79, 255)
 GREEN_BOTTOM = (21, 63, 49, 255)
 WHITE = (255, 254, 249, 255)
+PAPER = (250, 248, 237, 255)
+INK = (0, 55, 66, 255)
+WAVE = (0, 108, 91, 255)
+ACCENT = (255, 107, 44, 255)
+OUTLINE = (0, 55, 66, 90)
 
 
 def mix(a: int, b: int, t: float) -> int:
     return round(a + (b - a) * t)
 
 
-def rounded_rect_mask(x: float, y: float, width: float, height: float, radius: float) -> bool:
-    px = min(max(x, radius), width - radius)
-    py = min(max(y, radius), height - radius)
-    return (x - px) ** 2 + (y - py) ** 2 <= radius**2
+def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
+    return min(max(value, minimum), maximum)
 
 
-def draw_round_line(pixels: bytearray, size: int, x: float, y1: float, y2: float, width: float) -> None:
+def blend_pixel(
+    pixels: bytearray,
+    size: int,
+    x: int,
+    y: int,
+    color: tuple[int, int, int, int],
+    coverage: float = 1.0,
+) -> None:
+    if not (0 <= x < size and 0 <= y < size):
+        return
+    alpha = coverage * color[3] / 255
+    if alpha <= 0:
+        return
+    offset = (y * size + x) * 4
+    existing_alpha = pixels[offset + 3] / 255
+    out_alpha = alpha + existing_alpha * (1 - alpha)
+    if out_alpha <= 0:
+        return
+    for channel in range(3):
+        pixels[offset + channel] = round(
+            (
+                color[channel] * alpha
+                + pixels[offset + channel] * existing_alpha * (1 - alpha)
+            )
+            / out_alpha
+        )
+    pixels[offset + 3] = round(out_alpha * 255)
+
+
+def rounded_rect_coverage(
+    px: float,
+    py: float,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: float,
+) -> float:
+    half_width = width / 2
+    half_height = height / 2
+    dx = abs(px - (x + half_width)) - (half_width - radius)
+    dy = abs(py - (y + half_height)) - (half_height - radius)
+    outside = math.hypot(max(dx, 0), max(dy, 0))
+    inside = min(max(dx, dy), 0)
+    signed_distance = outside + inside - radius
+    return clamp(0.5 - signed_distance)
+
+
+def fill_rounded_rect(
+    pixels: bytearray,
+    size: int,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    radius: float,
+    color: tuple[int, int, int, int],
+) -> None:
+    min_x = max(0, math.floor(x - 1))
+    max_x = min(size - 1, math.ceil(x + width + 1))
+    min_y = max(0, math.floor(y - 1))
+    max_y = min(size - 1, math.ceil(y + height + 1))
+    for py in range(min_y, max_y + 1):
+        for px in range(min_x, max_x + 1):
+            coverage = rounded_rect_coverage(px + 0.5, py + 0.5, x, y, width, height, radius)
+            if coverage:
+                blend_pixel(pixels, size, px, py, color, coverage)
+
+
+def fill_ellipse(
+    pixels: bytearray,
+    size: int,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    color: tuple[int, int, int, int],
+) -> None:
+    min_x = max(0, math.floor(cx - rx - 1))
+    max_x = min(size - 1, math.ceil(cx + rx + 1))
+    min_y = max(0, math.floor(cy - ry - 1))
+    max_y = min(size - 1, math.ceil(cy + ry + 1))
+    for py in range(min_y, max_y + 1):
+        for px in range(min_x, max_x + 1):
+            nx = (px + 0.5 - cx) / rx
+            ny = (py + 0.5 - cy) / ry
+            distance = math.sqrt(nx * nx + ny * ny)
+            coverage = clamp((1.0 - distance) * min(rx, ry))
+            if coverage:
+                blend_pixel(pixels, size, px, py, color, coverage)
+
+
+def draw_round_line(
+    pixels: bytearray,
+    size: int,
+    x: float,
+    y1: float,
+    y2: float,
+    width: float,
+    color: tuple[int, int, int, int],
+) -> None:
     radius = width / 2
     min_x = max(0, math.floor(x - radius))
     max_x = min(size - 1, math.ceil(x + radius))
@@ -46,58 +149,130 @@ def draw_round_line(pixels: bytearray, size: int, x: float, y1: float, y2: float
             if edge <= 0:
                 continue
             alpha = min(1.0, edge)
-            offset = (py * size + px) * 4
-            existing_alpha = pixels[offset + 3] / 255
-            out_alpha = alpha + existing_alpha * (1 - alpha)
-            for channel in range(3):
-                pixels[offset + channel] = round(
-                    (
-                        WHITE[channel] * alpha
-                        + pixels[offset + channel] * existing_alpha * (1 - alpha)
-                    )
-                    / out_alpha
-                )
-            pixels[offset + 3] = round(out_alpha * 255)
+            blend_pixel(pixels, size, px, py, color, alpha)
+
+
+def draw_horizontal_round_line(
+    pixels: bytearray,
+    size: int,
+    x1: float,
+    x2: float,
+    y: float,
+    width: float,
+    color: tuple[int, int, int, int],
+) -> None:
+    radius = width / 2
+    min_x = max(0, math.floor(x1 - radius))
+    max_x = min(size - 1, math.ceil(x2 + radius))
+    min_y = max(0, math.floor(y - radius))
+    max_y = min(size - 1, math.ceil(y + radius))
+    for py in range(min_y, max_y + 1):
+        for px in range(min_x, max_x + 1):
+            dy = py + 0.5 - y
+            if x1 <= px + 0.5 <= x2:
+                distance = abs(dy)
+            else:
+                cx = x1 if px + 0.5 < x1 else x2
+                dx = px + 0.5 - cx
+                distance = math.hypot(dx, dy)
+            edge = radius - distance
+            if edge <= 0:
+                continue
+            blend_pixel(pixels, size, px, py, color, min(1.0, edge))
 
 
 def png_bytes(size: int) -> bytes:
     pixels = bytearray(size * size * 4)
-    rect = size * 0.109375
-    rect_size = size * 0.78125
-    radius = size * 0.2109375
-    shadow_center = (size / 2, size * 0.55)
+    scale = size / 1024
+    background_rect = size * 0.0625
+    background_size = size * 0.875
+    background_radius = size * 0.21875
 
     for y in range(size):
         for x in range(size):
             offset = (y * size + x) * 4
-            nx = x + 0.5 - rect
-            ny = y + 0.5 - rect
 
-            sx = (x + 0.5 - shadow_center[0]) / (size * 0.44)
-            sy = (y + 0.5 - shadow_center[1]) / (size * 0.42)
-            shadow = max(0, 1 - (sx * sx + sy * sy))
-            if shadow > 0:
-                pixels[offset:offset + 4] = bytes((15, 38, 30, round(48 * shadow)))
-
-            if not rounded_rect_mask(nx, ny, rect_size, rect_size, radius):
+            coverage = rounded_rect_coverage(
+                x + 0.5,
+                y + 0.5,
+                background_rect,
+                background_rect,
+                background_size,
+                background_size,
+                background_radius,
+            )
+            if not coverage:
                 continue
 
             t = min(1, max(0, (x + y) / (2 * size)))
             color = tuple(mix(GREEN_TOP[i], GREEN_BOTTOM[i], t) for i in range(3)) + (255,)
-            pixels[offset:offset + 4] = bytes(color)
+            pixels[offset:offset + 4] = bytes((*color[:3], round(coverage * 255)))
+
+    fill_rounded_rect(
+        pixels,
+        size,
+        152 * scale,
+        122 * scale,
+        520 * scale,
+        210 * scale,
+        105 * scale,
+        (255, 255, 255, 42),
+    )
+    fill_rounded_rect(
+        pixels,
+        size,
+        248 * scale,
+        236 * scale,
+        560 * scale,
+        604 * scale,
+        94 * scale,
+        (0, 0, 0, 36),
+    )
+    fill_rounded_rect(
+        pixels,
+        size,
+        222 * scale,
+        204 * scale,
+        580 * scale,
+        620 * scale,
+        98 * scale,
+        OUTLINE,
+    )
+    fill_rounded_rect(
+        pixels,
+        size,
+        234 * scale,
+        216 * scale,
+        556 * scale,
+        596 * scale,
+        86 * scale,
+        PAPER,
+    )
 
     bars = [
-        (268, 478, 546),
-        (348, 382, 642),
-        (428, 304, 720),
-        (508, 362, 662),
-        (588, 320, 704),
-        (668, 402, 622),
-        (748, 478, 546),
+        (320, 330, 430),
+        (386, 292, 470),
+        (452, 350, 430),
+        (518, 272, 506),
+        (584, 336, 456),
+        (650, 310, 482),
+        (716, 366, 434),
     ]
-    scale = size / 1024
     for x, y1, y2 in bars:
-        draw_round_line(pixels, size, x * scale, y1 * scale, y2 * scale, 74 * scale)
+        draw_round_line(pixels, size, x * scale, y1 * scale, y2 * scale, 30 * scale, WAVE)
+
+    fill_ellipse(pixels, size, 325 * scale, 318 * scale, 42 * scale, 42 * scale, ACCENT)
+
+    for y, width in ((566, 410), (646, 330), (724, 250)):
+        draw_horizontal_round_line(
+            pixels,
+            size,
+            318 * scale,
+            (318 + width) * scale,
+            y * scale,
+            26 * scale,
+            INK,
+        )
 
     return encode_png(size, size, pixels)
 

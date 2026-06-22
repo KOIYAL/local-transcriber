@@ -10,7 +10,7 @@ if (!debugPort || !["ja", "en"].includes(locale) || !outputDirectory) {
   process.exit(2);
 }
 
-const pageUrl = "http://127.0.0.1:8765";
+const pageUrl = process.env.STORE_SCREENSHOT_APP_URL || "http://127.0.0.1:8765";
 const target = await fetch(
   `http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(pageUrl)}`,
   { method: "PUT" },

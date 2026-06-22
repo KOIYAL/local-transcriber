@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Local Transcriber app icon</title>
+  <desc id="desc">A green rounded-square app icon showing a transcript document with speech waveform and text lines.</desc>
+  <defs>
+    <linearGradient id="background" x1="176" y1="132" x2="848" y2="892" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f6f4f"/>
+      <stop offset="1" stop-color="#153f31"/>
+    </linearGradient>
+    <filter id="shadow" x="80" y="80" width="864" height="864" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="30" stdDeviation="36" flood-color="#0f261e" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="224" fill="url(#background)" filter="url(#shadow)"/>
+  <rect x="152" y="122" width="520" height="210" rx="105" fill="#fff" opacity=".16"/>
+  <rect x="222" y="204" width="580" height="620" rx="98" fill="#003742" opacity=".35"/>
+  <rect x="234" y="216" width="556" height="596" rx="86" fill="#faf8ed"/>
+  <path d="M320 430V330M386 470V292M452 430V350M518 506V272M584 456V336M650 482V310M716 434V366" fill="none" stroke="#006c5b" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="325" cy="318" r="42" fill="#ff6b2c"/>
+  <path d="M318 566H728M318 646H648M318 724H568" fill="none" stroke="#003742" stroke-width="26" stroke-linecap="round"/>
+</svg>

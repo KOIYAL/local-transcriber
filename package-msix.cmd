@@ -7,6 +7,7 @@ set "EXECUTABLE=%PACKAGE_DIR%\LocalTranscriber.exe"
 set "MANIFEST=%PACKAGE_DIR%\Package.appxmanifest"
 set "OUTPUT=dist\KOIYAL-Transcriber-Store.msix"
 set "LOGO=assets\app-icon.png"
+set "TILE_ASSET_DIR=assets\msix"
 
 if not exist "%EXECUTABLE%" (
     echo Build the desktop app first by running build-windows.cmd.
@@ -19,6 +20,11 @@ if not exist "%LOGO%" (
     exit /b 1
 )
 
+if not exist "%TILE_ASSET_DIR%\Square44x44Logo.png" (
+    echo ERROR: Missing MSIX tile assets. Run scripts\generate_app_icons.py first.
+    exit /b 1
+)
+
 pushd "%PACKAGE_DIR%"
 if exist Package.appxmanifest del /q Package.appxmanifest
 if exist Assets rmdir /s /q Assets
@@ -28,6 +34,10 @@ if errorlevel 1 (
     exit /b 1
 )
 popd
+
+if not exist "%PACKAGE_DIR%\Assets" mkdir "%PACKAGE_DIR%\Assets"
+xcopy /E /I /Y "%TILE_ASSET_DIR%\*" "%PACKAGE_DIR%\Assets\" >nul
+if errorlevel 1 exit /b 1
 
 if "%STORE_IDENTITY_NAME%"=="" (
     echo ERROR: STORE_IDENTITY_NAME is required.

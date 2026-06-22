@@ -72,21 +72,9 @@ summary,
 }
 
 .brand-mark {
-  display: grid;
   width: 36px;
   height: 36px;
-  color: white;
-  background: var(--green);
-  border-radius: 10px;
-  place-items: center;
-}
-
-.brand-mark svg {
-  width: 25px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 2;
+  flex: 0 0 auto;
 }
 
 .header-actions {

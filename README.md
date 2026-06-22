@@ -89,8 +89,9 @@ After the first setup, transcription can run offline.
 | `assets/app-icon.png` | 1024pxのプレビュー/汎用PNG |
 | `assets/app-icon.icns` | macOSアプリ用 |
 | `assets/app-icon.ico` | Windowsアプリ用 |
+| `assets/msix/` | Microsoft Store/MSIXのタイル・スプラッシュ画面用 |
 
-アイコンを書き換えた場合は、次のコマンドでPNG、ICNS、ICOを再生成できます。
+アイコンを書き換えた場合は、次のコマンドでPNG、ICNS、ICO、MSIX用画像を再生成できます。
 
 ```bash
 .venv/bin/python scripts/generate_app_icons.py

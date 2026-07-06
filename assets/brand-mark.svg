@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Local Transcriber brand mark">
+  <!-- Mark only (transparent background). Used to compose MSIX tiles and promo art. -->
+  <path
+    d="M240 420
+       C 265 336, 290 336, 315 420
+       S 365 504, 390 420
+       S 440 352, 465 420
+       S 515 474, 540 420
+       S 580 420, 620 420
+       L 784 420"
+    fill="none"
+    stroke="#f59e0b"
+    stroke-width="58"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+  <path d="M240 592H712" stroke="#ffffff" stroke-width="58" stroke-linecap="round" opacity="0.95"/>
+  <path d="M240 748H560" stroke="#ffffff" stroke-width="58" stroke-linecap="round" opacity="0.55"/>
+</svg>

@@ -85,16 +85,34 @@ After the first setup, transcription can run offline.
 
 | ファイル | 用途 |
 | --- | --- |
-| `assets/app-icon.svg` | 編集用の元データ |
-| `assets/app-icon.png` | 1024pxのプレビュー/汎用PNG |
+| `assets/app-icon.svg` | アイコンの編集用元データ |
+| `assets/brand-mark.svg` | マーク単体（透過）の編集用元データ |
+| `assets/app-icon.png` | 1024pxマスターPNG（app-icon.svgのレンダリング結果） |
+| `assets/brand-mark.png` | 1024pxマーク単体PNG（MSIXタイル・宣伝画像の合成用） |
 | `assets/app-icon.icns` | macOSアプリ用 |
 | `assets/app-icon.ico` | Windowsアプリ用 |
 | `assets/msix/` | Microsoft Store/MSIXのタイル・スプラッシュ画面用 |
 
-アイコンを書き換えた場合は、次のコマンドでPNG、ICNS、ICO、MSIX用画像を再生成できます。
+SVGを書き換えた場合は、任意のSVGレンダラーで2つのマスターPNGを1024pxで
+再レンダリングしてから、派生アセット（ICNS、ICO、MSIX用画像）を再生成します。
 
 ```bash
+.venv/bin/pip install -e ".[assets]"
 .venv/bin/python scripts/generate_app_icons.py
+```
+
+## ストア用スクリーンショットと宣伝画像
+
+`store-assets/screenshots/` にja-JP/en-USのスクリーンショット（1920x1080）、
+`store-assets/promo/` に宣伝画像（ヒーロー2400x1200、3ステップ1920x1080）があります。
+
+再生成する場合は、アプリを `--port 8765` で起動し、リモートデバッグ有効の
+Chrome/Chromiumを使って次を実行します。
+
+```bash
+node scripts/capture_store_screenshots.mjs <debug-port> ja store-assets/screenshots/ja-JP
+node scripts/capture_store_screenshots.mjs <debug-port> en store-assets/screenshots/en-US
+CHROME=/path/to/chrome node scripts/generate_promo_images.mjs
 ```
 
 ## 必要環境

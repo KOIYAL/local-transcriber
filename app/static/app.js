@@ -24,6 +24,11 @@ const resultMeta = document.querySelector("#result-meta");
 const transcript = document.querySelector("#transcript");
 const downloadButtons = document.querySelector("#download-buttons");
 const copyButton = document.querySelector("#copy-button");
+const summarySection = document.querySelector("#summary-section");
+const summarizeButton = document.querySelector("#summarize-button");
+const summaryStatus = document.querySelector("#summary-status");
+const summaryText = document.querySelector("#summary-text");
+const summaryUpgrade = document.querySelector("#summary-upgrade");
 const toast = document.querySelector("#toast");
 const localeButtons = document.querySelectorAll("[data-locale]");
 
@@ -94,6 +99,15 @@ const translations = {
     processingFailed: "Processing failed",
     uploadFailed: "Upload failed",
     languageConfidence: "language confidence {{percent}}%",
+    summaryTitle: "Summary",
+    summarize: "Summarize",
+    resummarize: "Summarize again",
+    summaryPreparing: "Preparing the summary model... {{percent}}%",
+    summaryRunning: "Summarizing on this computer...",
+    summaryFailed: "The summary failed.",
+    summarySetupFailed: "The summary model could not be prepared.",
+    summaryUpgradeHint: "A better summary model is now available for this computer.",
+    errorSummarySetupIncomplete: "The summary feature is still being set up.",
     copied: "Transcription copied.",
     copyFailed: "Could not copy the transcription.",
     configFailed: "Could not load the app settings.",
@@ -175,6 +189,15 @@ const translations = {
     processingFailed: "処理に失敗しました",
     uploadFailed: "アップロードに失敗しました",
     languageConfidence: "言語確度 {{percent}}%",
+    summaryTitle: "要約",
+    summarize: "要約する",
+    resummarize: "もう一度要約",
+    summaryPreparing: "要約モデルを準備中... {{percent}}%",
+    summaryRunning: "この端末で要約を生成しています...",
+    summaryFailed: "要約に失敗しました。",
+    summarySetupFailed: "要約モデルを準備できませんでした。",
+    summaryUpgradeHint: "この端末向けに、より良い要約モデルが利用可能になりました。",
+    errorSummarySetupIncomplete: "要約機能の準備が完了していません。",
     copied: "文字起こし結果をコピーしました。",
     copyFailed: "コピーできませんでした。",
     configFailed: "設定を取得できませんでした。",
@@ -210,6 +233,7 @@ const errorCodeKeys = {
   job_incomplete: "errorJobIncomplete",
   output_missing: "errorOutputMissing",
   job_busy: "errorJobBusy",
+  summary_setup_incomplete: "errorSummarySetupIncomplete",
 };
 
 let config = null;
@@ -220,6 +244,7 @@ let currentLocale = getInitialLocale();
 let submitState = "startTranscription";
 let pollTimer = null;
 let setupTimer = null;
+let summaryTimer = null;
 let toastTimer = null;
 
 function getInitialLocale() {
@@ -269,8 +294,12 @@ function applyLanguage(locale, persist = true) {
   }
   if (config) updateLimitLabel();
   if (currentSetup) renderSetup(currentSetup);
-  if (currentJob?.status === "completed") updateResultMeta(currentJob);
-  else if (currentJob) updateProgress(currentJob);
+  if (currentJob?.status === "completed") {
+    updateResultMeta(currentJob);
+    renderSummary(currentJob);
+  } else if (currentJob) {
+    updateProgress(currentJob);
+  }
   setSubmitState(submitState);
 }
 
@@ -453,6 +482,14 @@ function renderResult(job) {
     }),
   );
 
+  renderDownloads(job);
+  renderSummary(job);
+  setFile(null);
+  setSubmitState("anotherFile");
+  resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderDownloads(job) {
   downloadButtons.replaceChildren(
     ...Object.entries(job.downloads || {}).map(([format, url]) => {
       const link = document.createElement("a");
@@ -462,9 +499,118 @@ function renderResult(job) {
       return link;
     }),
   );
-  setFile(null);
-  setSubmitState("anotherFile");
-  resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderSummary(job) {
+  if (!summarySection) return;
+  const available = Boolean(config?.summary?.available);
+  summarySection.hidden = !available;
+  if (!available) return;
+
+  const summary = job?.summary || null;
+  const state = summary?.status || "none";
+  summarizeButton.disabled = state === "queued" || state === "running";
+  summarizeButton.querySelector("span").textContent = t(
+    state === "completed" ? "resummarize" : "summarize",
+  );
+
+  summaryStatus.hidden = true;
+  summaryText.hidden = true;
+  if (state === "completed" && summary.text) {
+    summaryText.textContent = summary.text;
+    summaryText.hidden = false;
+  } else if (state === "queued" || state === "running") {
+    summaryStatus.textContent = t("summaryRunning");
+    summaryStatus.hidden = false;
+  } else if (state === "failed") {
+    summaryStatus.textContent = summary.error
+      ? `${t("summaryFailed")} ${summary.error}`
+      : t("summaryFailed");
+    summaryStatus.hidden = false;
+  }
+}
+
+async function fetchSummarySetup(retry = false) {
+  const response = await fetch(
+    retry ? "/api/summary/setup/retry" : "/api/summary/setup",
+    { method: retry ? "POST" : "GET" },
+  );
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json();
+}
+
+function waitForSummaryReady() {
+  window.clearTimeout(summaryTimer);
+  return new Promise((resolve, reject) => {
+    const tick = async () => {
+      try {
+        const setup = await fetchSummarySetup(false);
+        if (setup.upgrade) {
+          summaryUpgrade.textContent = t("summaryUpgradeHint");
+          summaryUpgrade.hidden = false;
+        }
+        if (setup.ready) {
+          resolve(setup);
+          return;
+        }
+        if (!setup.available || setup.status === "failed") {
+          reject(new Error(t("summarySetupFailed")));
+          return;
+        }
+        summaryStatus.textContent = t("summaryPreparing", {
+          percent: Math.round((setup.progress || 0) * 100),
+        });
+        summaryStatus.hidden = false;
+        summaryTimer = window.setTimeout(tick, 900);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    tick();
+  });
+}
+
+async function pollSummary(jobId) {
+  window.clearTimeout(summaryTimer);
+  const response = await fetch(`/api/jobs/${jobId}`);
+  if (!response.ok) throw new Error(await readError(response));
+  const job = await response.json();
+  currentJob = job;
+  renderSummary(job);
+  const state = job.summary?.status;
+  if (state === "queued" || state === "running") {
+    summaryTimer = window.setTimeout(
+      () => pollSummary(jobId).catch((error) => showToast(error.message)),
+      1200,
+    );
+    return;
+  }
+  if (state === "completed") renderDownloads(job);
+  if (state === "failed") showToast(job.summary?.error || t("summaryFailed"));
+}
+
+async function startSummarize() {
+  if (!currentJob || currentJob.status !== "completed") return;
+  summarizeButton.disabled = true;
+  summaryUpgrade.hidden = true;
+  try {
+    await waitForSummaryReady();
+    summaryStatus.textContent = t("summaryRunning");
+    summaryStatus.hidden = false;
+    const response = await fetch(`/api/jobs/${currentJob.id}/summarize`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error(await readError(response));
+    const job = await response.json();
+    currentJob = job;
+    renderSummary(job);
+    pollSummary(job.id).catch((error) => showToast(error.message));
+  } catch (error) {
+    summaryStatus.textContent =
+      error instanceof Error ? error.message : t("genericError");
+    summaryStatus.hidden = false;
+    summarizeButton.disabled = false;
+  }
 }
 
 async function pollJob(jobId) {
@@ -498,6 +644,7 @@ async function pollJob(jobId) {
 localeButtons.forEach((button) => {
   button.addEventListener("click", () => applyLanguage(button.dataset.locale));
 });
+summarizeButton.addEventListener("click", startSummarize);
 fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
 removeFileButton.addEventListener("click", () => setFile(null));
 setupRetry.addEventListener("click", () => {

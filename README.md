@@ -180,6 +180,27 @@ $env:WHISPER_LOCAL_MODEL = "C:\models\faster-whisper-small"
 
 設定後はモデル一覧に `Local` が表示されます。
 
+## 要約機能（オプション）
+
+完了した文字起こしをローカルLLMで要約できます（結果画面の「要約する」ボタン）。
+モデルの選定・ダウンロード・共有・更新通知は
+[modelshelf](https://github.com/koiyal/modelshelf) に任せており、この端末の
+RAM/GPU に合ったチャットモデルが初回に自動で用意されます。モデルは
+`~/.modelshelf` の共有ストアに入るため、modelshelf を使う他のアプリと
+1つの実体を共有します（重複ダウンロードなし）。
+
+有効化は2ステップです。どちらかが欠けている場合、要約UIは表示されず
+アプリは従来どおり動作します。
+
+```console
+$ cargo install --git https://github.com/koiyal/modelshelf modelshelf-cli  # または配布バイナリ
+$ python -m pip install -e ".[summary]"   # llama-cpp-python を追加
+```
+
+- 要約の生成もこの端末内で完結します（外部送信なし）。
+- 出力は結果画面に表示されるほか、`SUMMARY.TXT` としてダウンロードできます。
+- より良いモデルがカタログに登場すると、要約実行時に案内が表示されます。
+
 ## 環境変数
 
 `.env.example` に設定例があります。現状は `.env` の自動読み込みを行わないため、
@@ -195,6 +216,8 @@ PowerShellやOSの環境変数として設定してください。
 | `TRANSCRIBER_DATA_DIR` | `./data` | アップロード・出力の保存先 |
 | `KEEP_UPLOADS` | `false` | 処理後も元ファイルを残す |
 | `TRANSCRIBER_WORKERS` | `1` | 同時推論数。GPUメモリに注意 |
+| `MODELSHELF_BIN` | 空 | modelshelf バイナリのパス（PATH上にない場合） |
+| `LT_SUMMARY_GPU_LAYERS` | `0` | 要約LLMのGPUオフロード層数（`-1`で全層） |
 
 ## データの扱い
 

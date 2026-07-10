@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from app.config import Settings
 from app.exporters import write_exports
@@ -32,6 +32,9 @@ class JobRecord:
     result: dict[str, Any] | None = None
     exports: dict[str, Path] = field(default_factory=dict)
     error: str | None = None
+    summary: str | None = None
+    summary_status: str = "none"  # none | queued | running | completed | failed
+    summary_error: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -47,6 +50,12 @@ class JobRecord:
         }
         if self.result:
             payload["result"] = self.result
+        if self.summary_status != "none":
+            payload["summary"] = {
+                "status": self.summary_status,
+                "text": self.summary,
+                "error": self.summary_error,
+            }
         if self.exports:
             payload["downloads"] = {
                 file_format: f"/api/jobs/{self.id}/download/{file_format}"
@@ -62,6 +71,12 @@ class JobManager:
         self.executor = ThreadPoolExecutor(
             max_workers=settings.max_workers,
             thread_name_prefix="transcriber",
+        )
+        # Summaries run on their own single worker so a slow LLM never
+        # blocks transcription jobs (and inference stays serialized).
+        self.summary_executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="summarizer",
         )
         self._jobs: dict[str, JobRecord] = {}
         self._lock = threading.Lock()
@@ -101,7 +116,11 @@ class JobManager:
                 "transcribing",
                 "finalizing",
             }
-            if not job or job.status in active_statuses:
+            if (
+                not job
+                or job.status in active_statuses
+                or job.summary_status in {"queued", "running"}
+            ):
                 return False
             del self._jobs[job_id]
         shutil.rmtree(self.settings.output_dir / job_id, ignore_errors=True)
@@ -167,5 +186,62 @@ class JobManager:
             if not self.settings.keep_uploads:
                 job.media_path.unlink(missing_ok=True)
 
+    def submit_summary(
+        self,
+        job_id: str,
+        run_summary: Callable[[str], str],
+    ) -> JobRecord | None:
+        """Queue a summary of a completed job's transcript.
+
+        `run_summary` receives the transcript text and returns the summary
+        (the caller binds the engine and model path). Returns the job, or
+        None when it does not exist or has no completed transcript yet.
+        Re-submitting while queued/running is a no-op.
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job or job.status != "completed" or not job.result:
+                return None
+            if job.summary_status in {"queued", "running"}:
+                return job
+            job.summary_status = "queued"
+            job.summary_error = None
+            job.updated_at = utc_now()
+        self.summary_executor.submit(self._run_summary, job_id, run_summary)
+        return job
+
+    def _set_summary(self, job_id: str, status: str, error: str | None = None) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return
+            job.summary_status = status
+            job.summary_error = error
+            job.updated_at = utc_now()
+
+    def _run_summary(self, job_id: str, run_summary: Callable[[str], str]) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return
+            text = (job.result or {}).get("text", "")
+        self._set_summary(job_id, "running")
+        try:
+            summary = run_summary(text)
+            output_dir = self.settings.output_dir / job_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = output_dir / "summary.txt"
+            summary_path.write_text(summary + "\n", encoding="utf-8")
+            with self._lock:
+                job = self._jobs.get(job_id)
+                if not job:
+                    return
+                job.summary = summary
+                job.exports["summary.txt"] = summary_path
+            self._set_summary(job_id, "completed")
+        except Exception as exc:
+            self._set_summary(job_id, "failed", str(exc))
+
     def shutdown(self) -> None:
         self.executor.shutdown(wait=False, cancel_futures=False)
+        self.summary_executor.shutdown(wait=False, cancel_futures=False)

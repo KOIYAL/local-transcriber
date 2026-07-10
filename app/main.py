@@ -22,7 +22,9 @@ from app.config import (
     SETTINGS,
 )
 from app.jobs import JobManager
+from app.llm_manager import LlmManager
 from app.model_manager import ModelManager
+from app.summarizer import SummaryEngine, llama_available
 
 
 @asynccontextmanager
@@ -35,6 +37,8 @@ async def lifespan(app: FastAPI):
         directory.mkdir(parents=True, exist_ok=True)
     app.state.models = ModelManager(SETTINGS)
     app.state.jobs = JobManager(SETTINGS)
+    app.state.summary_llm = LlmManager()
+    app.state.summarizer = SummaryEngine()
     yield
     app.state.jobs.shutdown()
 
@@ -59,6 +63,19 @@ def model_manager(request: Request) -> ModelManager:
     return request.app.state.models
 
 
+def llm_manager(request: Request) -> LlmManager:
+    return request.app.state.summary_llm
+
+
+def summary_status(request: Request) -> dict:
+    """Feature status for clients: modelshelf AND llama-cpp must exist."""
+    status = llm_manager(request).status()
+    if not llama_available():
+        status["available"] = False
+        status["ready"] = False
+    return status
+
+
 def error_detail(code: str, **params: str | int) -> dict:
     return {"code": code, "params": params}
 
@@ -80,7 +97,24 @@ async def config(request: Request) -> dict:
         "max_upload_mb": SETTINGS.max_upload_bytes // (1024 * 1024),
         "allowed_extensions": sorted(ALLOWED_EXTENSIONS),
         "setup": setup,
+        "summary": summary_status(request),
     }
+
+
+@app.get("/api/summary/setup")
+async def summary_setup(request: Request) -> dict:
+    manager = llm_manager(request)
+    if llama_available():
+        manager.start()
+    return summary_status(request)
+
+
+@app.post("/api/summary/setup/retry")
+async def retry_summary_setup(request: Request) -> dict:
+    manager = llm_manager(request)
+    if llama_available():
+        manager.start()
+    return summary_status(request)
 
 
 @app.get("/api/setup")
@@ -199,6 +233,39 @@ async def download(job_id: str, file_format: str, request: Request) -> FileRespo
         filename=f"{stem}.{file_format}",
         media_type="application/octet-stream",
     )
+
+
+@app.post("/api/jobs/{job_id}/summarize", status_code=202)
+async def summarize_job(job_id: str, request: Request) -> dict:
+    job = job_manager(request).get(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=error_detail("job_not_found"),
+        )
+    if job.status != "completed":
+        raise HTTPException(
+            status_code=409,
+            detail=error_detail("job_incomplete"),
+        )
+    status = summary_status(request)
+    model_path = llm_manager(request).model_path()
+    if not status["ready"] or model_path is None:
+        raise HTTPException(
+            status_code=409,
+            detail=error_detail("summary_setup_incomplete"),
+        )
+    engine = request.app.state.summarizer
+    submitted = job_manager(request).submit_summary(
+        job_id,
+        lambda text: engine.summarize(text, model_path),
+    )
+    if submitted is None:
+        raise HTTPException(
+            status_code=409,
+            detail=error_detail("job_incomplete"),
+        )
+    return submitted.as_dict()
 
 
 @app.delete("/api/jobs/{job_id}", status_code=204)

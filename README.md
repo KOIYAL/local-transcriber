@@ -201,6 +201,32 @@ $ python -m pip install -e ".[summary]"   # llama-cpp-python を追加
 - 出力は結果画面に表示されるほか、`SUMMARY.TXT` としてダウンロードできます。
 - より良いモデルがカタログに登場すると、要約実行時に案内が表示されます。
 
+### どんな挙動になるか
+
+文字起こし完了画面に「要約する」ボタンが現れます。初回だけ、この端末の
+RAM/GPU に合った要約モデルの自動セットアップ（ダウンロード）が走り、
+ボタンの下に進捗が表示されます。
+
+![初回は要約モデルを自動で準備する](docs/screenshots/summary-2-preparing.png)
+
+準備が済むと要約が生成され、結果画面への表示に加えて `SUMMARY.TXT` の
+ダウンロードボタンが増えます。2回目以降はセットアップなしで即生成です。
+
+![要約の表示と SUMMARY.TXT エクスポート](docs/screenshots/summary-3-result.png)
+
+### 手元で試す
+
+上の2ステップ（modelshelf CLI + `.[summary]`）を済ませてから:
+
+```console
+$ python -m uvicorn app.main:app --port 8000
+```
+
+ブラウザで `http://127.0.0.1:8000` を開き、音声・動画を文字起こしして
+「要約する」を押してください。スクリーンショットは
+`node scripts/capture_summary_screenshots.mjs <debug-port> ja docs/screenshots`
+で再生成できます（ストア用スクリーンショットと同じ CDP 方式）。
+
 ## 環境変数
 
 `.env.example` に設定例があります。現状は `.env` の自動読み込みを行わないため、

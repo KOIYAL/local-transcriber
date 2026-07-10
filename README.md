@@ -201,6 +201,12 @@ $ python -m pip install -e ".[summary]"   # llama-cpp-python を追加
 - 出力は結果画面に表示されるほか、`SUMMARY.TXT` としてダウンロードできます。
 - より良いモデルがカタログに登場すると、要約実行時に案内が表示されます。
 
+**Mac では Apple Intelligence を自動的に第一候補にします**（Apple Silicon +
+macOS 26 以降 + Apple Intelligence 有効時）。モデルのダウンロードが一切不要で、
+即座に要約できます。非対応の環境では上記の modelshelf + llama-cpp 経路へ自動
+フォールバックします。`LT_SUMMARY_ENGINE=apple|local|auto` で強制切替も可能
+（ブリッジの実装は `desktop/apple-intelligence-helper/` を参照）。
+
 ### どんな挙動になるか
 
 文字起こし完了画面に「要約する」ボタンが現れます。初回だけ、この端末の
@@ -244,6 +250,8 @@ PowerShellやOSの環境変数として設定してください。
 | `TRANSCRIBER_WORKERS` | `1` | 同時推論数。GPUメモリに注意 |
 | `MODELSHELF_BIN` | 空 | modelshelf バイナリのパス（PATH上にない場合） |
 | `LT_SUMMARY_GPU_LAYERS` | `0` | 要約LLMのGPUオフロード層数（`-1`で全層） |
+| `LT_SUMMARY_ENGINE` | `auto` | 要約エンジン。`auto`=Apple Intelligence優先 / `apple` / `local` |
+| `LT_APPLE_AI_HELPER` | 空 | Apple Intelligence ブリッジのパス（同梱位置以外の場合） |
 
 ## データの扱い
 

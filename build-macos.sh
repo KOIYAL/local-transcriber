@@ -88,7 +88,28 @@ case "$(uname -m)" in
 esac
 
 echo "[1/5] Installing Python build dependencies..."
-"$PYTHON" -m pip install --disable-pip-version-check -e ".[desktop]"
+"$PYTHON" -m pip install --disable-pip-version-check -e ".[desktop,summary]"
+
+# Summary engines (both optional; the app hides the feature when absent):
+# - Apple Intelligence bridge, when the SDK is new enough to build it
+# - modelshelf CLI fallback, when a vendored binary is present
+#   (artifact "modelshelf-macos-arm64" of the modelshelf repo's
+#    "Release binaries" workflow -> vendor/modelshelf, chmod +x)
+if xcrun --sdk macosx swiftc -help >/dev/null 2>&1; then
+  echo "Building the Apple Intelligence helper..."
+  mkdir -p vendor
+  if (cd desktop/apple-intelligence-helper && \
+      xcrun swiftc -O -parse-as-library main.swift -o ../../vendor/apple-intelligence-helper); then
+    echo "  vendor/apple-intelligence-helper ready"
+  else
+    echo "  WARNING: helper build failed (SDK without FoundationModels?);"
+    echo "  the app will fall back to the local-LLM summary engine."
+  fi
+fi
+if [ ! -f vendor/modelshelf ]; then
+  echo "NOTE: vendor/modelshelf not found - the local-LLM fallback engine"
+  echo "will be unavailable in this build (Apple Intelligence only)."
+fi
 
 echo "[2/5] Building the bundled transcription backend..."
 "$PYTHON" -m PyInstaller \

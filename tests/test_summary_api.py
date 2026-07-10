@@ -97,6 +97,37 @@ def test_summarize_full_flow_with_fakes(tmp_path, monkeypatch) -> None:
         assert client.delete("/api/jobs/sum-ok").status_code == 204
 
 
+class FakeApple:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def available(self) -> bool:
+        return True
+
+    def summarize(self, text: str) -> str:
+        self.calls.append(text)
+        return "APPLE SUMMARY"
+
+
+def test_apple_engine_short_circuits_setup_and_summarizes(tmp_path) -> None:
+    with TestClient(app) as client:
+        app.state.apple_ai = FakeApple()
+
+        # No download, no llama-cpp: the feature is ready immediately.
+        setup = client.get("/api/summary/setup").json()
+        assert setup["engine"] == "apple_intelligence"
+        assert setup["ready"] is True
+        assert setup["model"] == "Apple Intelligence"
+
+        inject_completed_job("sum-apple", tmp_path)
+        assert client.post("/api/jobs/sum-apple/summarize").status_code == 202
+        payload = wait_for_summary(client, "sum-apple")
+        assert payload["summary"]["status"] == "completed"
+        assert payload["summary"]["text"] == "APPLE SUMMARY"
+        assert "summary.txt" in payload["downloads"]
+        assert client.delete("/api/jobs/sum-apple").status_code == 204
+
+
 def test_summarize_refusals(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.main.llama_available", lambda: True)
     with TestClient(app) as client:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,10 +22,16 @@ from app.config import (
     PROJECT_ROOT,
     SETTINGS,
 )
+from app.apple_intelligence import AppleIntelligenceEngine
 from app.jobs import JobManager
 from app.llm_manager import LlmManager
 from app.model_manager import ModelManager
 from app.summarizer import SummaryEngine, llama_available
+
+# Which summary engine to use: `auto` prefers Apple Intelligence when the
+# machine supports it and falls back to the local LLM; `apple` / `local`
+# force one of them.
+SUMMARY_ENGINE_ENV = "LT_SUMMARY_ENGINE"
 
 
 @asynccontextmanager
@@ -39,6 +46,7 @@ async def lifespan(app: FastAPI):
     app.state.jobs = JobManager(SETTINGS)
     app.state.summary_llm = LlmManager()
     app.state.summarizer = SummaryEngine()
+    app.state.apple_ai = AppleIntelligenceEngine()
     yield
     app.state.jobs.shutdown()
 
@@ -68,11 +76,39 @@ def llm_manager(request: Request) -> LlmManager:
 
 
 def summary_status(request: Request) -> dict:
-    """Feature status for clients: modelshelf AND llama-cpp must exist."""
+    """Feature status for clients, after engine selection.
+
+    Apple Intelligence wins when available (no setup, no download);
+    otherwise the local engine needs both modelshelf AND llama-cpp.
+    """
+    mode = os.getenv(SUMMARY_ENGINE_ENV, "auto").strip().lower()
+    if mode != "local" and request.app.state.apple_ai.available():
+        return {
+            "available": True,
+            "ready": True,
+            "status": "ready",
+            "progress": 1.0,
+            "message": "Summaries are ready.",
+            "model": "Apple Intelligence",
+            "upgrade": None,
+            "engine": "apple_intelligence",
+        }
+    if mode == "apple":
+        return {
+            "available": False,
+            "ready": False,
+            "status": "unavailable",
+            "progress": 0.0,
+            "message": "Apple Intelligence is not available on this machine.",
+            "model": None,
+            "upgrade": None,
+            "engine": "apple_intelligence",
+        }
     status = llm_manager(request).status()
     if not llama_available():
         status["available"] = False
         status["ready"] = False
+    status["engine"] = "local_llm"
     return status
 
 
@@ -101,20 +137,24 @@ async def config(request: Request) -> dict:
     }
 
 
+def _start_summary_setup(request: Request) -> dict:
+    status = summary_status(request)
+    # Only the local engine needs provisioning; Apple Intelligence is a
+    # system service with nothing to download.
+    if status["engine"] == "local_llm" and status["available"] and llama_available():
+        llm_manager(request).start()
+        status = summary_status(request)
+    return status
+
+
 @app.get("/api/summary/setup")
 async def summary_setup(request: Request) -> dict:
-    manager = llm_manager(request)
-    if llama_available():
-        manager.start()
-    return summary_status(request)
+    return _start_summary_setup(request)
 
 
 @app.post("/api/summary/setup/retry")
 async def retry_summary_setup(request: Request) -> dict:
-    manager = llm_manager(request)
-    if llama_available():
-        manager.start()
-    return summary_status(request)
+    return _start_summary_setup(request)
 
 
 @app.get("/api/setup")
@@ -249,8 +289,23 @@ async def summarize_job(job_id: str, request: Request) -> dict:
             detail=error_detail("job_incomplete"),
         )
     status = summary_status(request)
+    if not status["ready"]:
+        raise HTTPException(
+            status_code=409,
+            detail=error_detail("summary_setup_incomplete"),
+        )
+    if status["engine"] == "apple_intelligence":
+        apple = request.app.state.apple_ai
+        submitted = job_manager(request).submit_summary(job_id, apple.summarize)
+        if submitted is None:
+            raise HTTPException(
+                status_code=409,
+                detail=error_detail("job_incomplete"),
+            )
+        return submitted.as_dict()
+
     model_path = llm_manager(request).model_path()
-    if not status["ready"] or model_path is None:
+    if model_path is None:
         raise HTTPException(
             status_code=409,
             detail=error_detail("summary_setup_incomplete"),

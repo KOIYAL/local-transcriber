@@ -37,6 +37,12 @@ _vendored_modelshelf = root / "vendor" / _modelshelf_name
 if _vendored_modelshelf.exists():
     binaries += [(str(_vendored_modelshelf), ".")]
 
+# macOS: the Apple Intelligence bridge (desktop/apple-intelligence-helper),
+# resolved the same way by app/apple_intelligence.py.
+_ai_helper = root / "vendor" / "apple-intelligence-helper"
+if sys.platform == "darwin" and _ai_helper.exists():
+    binaries += [(str(_ai_helper), ".")]
+
 analysis = Analysis(
     [str(root / "app" / "desktop.py")],
     pathex=[str(root)],

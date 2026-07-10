@@ -29,3 +29,6 @@ data/models/*
 *.key
 *.pem
 AuthKey_*.p8
+
+# Vendored binaries bundled into desktop builds (fetched, not committed)
+vendor/

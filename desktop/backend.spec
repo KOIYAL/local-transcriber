@@ -1,3 +1,5 @@
+import importlib.util
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
@@ -20,6 +22,20 @@ hiddenimports = [
     "onnxruntime",
     "tokenizers",
 ]
+
+# Optional summary feature: bundle llama-cpp-python (and its shared
+# libraries) when it is installed in the build environment.
+if importlib.util.find_spec("llama_cpp") is not None:
+    datas += collect_data_files("llama_cpp")
+    binaries += collect_dynamic_libs("llama_cpp")
+    hiddenimports += ["llama_cpp", "diskcache", "jinja2"]
+
+# …and ship the modelshelf CLI next to the backend executable when a
+# vendored copy exists (app/llm_manager.py resolves it there).
+_modelshelf_name = "modelshelf.exe" if sys.platform == "win32" else "modelshelf"
+_vendored_modelshelf = root / "vendor" / _modelshelf_name
+if _vendored_modelshelf.exists():
+    binaries += [(str(_vendored_modelshelf), ".")]
 
 analysis = Analysis(
     [str(root / "app" / "desktop.py")],

@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Callable
@@ -37,6 +38,13 @@ def _default_binary() -> str | None:
     override = os.getenv("MODELSHELF_BIN", "").strip()
     if override:
         return override if Path(override).exists() else None
+    # Packaged desktop builds (PyInstaller) ship modelshelf next to the
+    # backend executable; see desktop/backend.spec.
+    if getattr(sys, "frozen", False):
+        name = "modelshelf.exe" if os.name == "nt" else "modelshelf"
+        bundled = Path(sys.executable).parent / name
+        if bundled.exists():
+            return str(bundled)
     return shutil.which("modelshelf")
 
 

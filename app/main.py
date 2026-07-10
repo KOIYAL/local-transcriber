@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Local Transcriber",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 app.mount(

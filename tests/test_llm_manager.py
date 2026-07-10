@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from typing import Any
 
+from app import llm_manager
 from app.llm_manager import APP_ID, RECOMMEND_REF, LlmManager
 
 
@@ -31,6 +34,18 @@ def make_runner(table: dict[tuple[str, ...], Any], calls: list[list[str]]):
         return FakeCompleted(stdout=json.dumps(response))
 
     return run
+
+
+def test_bundled_binary_is_found_in_frozen_builds(tmp_path, monkeypatch) -> None:
+    # Packaged desktop builds ship modelshelf next to the backend
+    # executable (desktop/backend.spec); resolution must find it there.
+    name = "modelshelf.exe" if os.name == "nt" else "modelshelf"
+    bundled = tmp_path / name
+    bundled.write_bytes(b"")
+    monkeypatch.delenv("MODELSHELF_BIN", raising=False)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "local-transcriber-backend"))
+    assert llm_manager._default_binary() == str(bundled)
 
 
 def test_without_binary_the_feature_is_unavailable() -> None:

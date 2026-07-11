@@ -29,8 +29,7 @@ anything leaving your computer. No account, no API key, no cloud.
 ## Get it
 
 - **Download**: free builds are available from the
-  [KOIYAL website](https://koiyal.com/tools/local-transcriber) (and the app
-  stores, free of charge).
+  [KOIYAL website](https://koiyal.com/tools/local-transcriber).
 - **Run from source** (Python 3.10+):
 
   ```console

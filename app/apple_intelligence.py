@@ -64,10 +64,11 @@ def _default_helper() -> str | None:
         return override if Path(override).exists() else None
     if sys.platform != "darwin":
         return None
-    # Packaged desktop builds ship the helper next to the backend binary
+    # Packaged desktop builds ship the helper with the backend
     # (desktop/backend.spec), like the modelshelf CLI.
-    if getattr(sys, "frozen", False):
-        bundled = Path(sys.executable).parent / HELPER_NAME
+    from app.llm_manager import _bundled_candidates
+
+    for bundled in _bundled_candidates(HELPER_NAME):
         if bundled.exists():
             return str(bundled)
     return shutil.which(HELPER_NAME)

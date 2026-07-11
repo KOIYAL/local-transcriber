@@ -34,15 +34,31 @@ DOWNLOAD_TIMEOUT = 4 * 60 * 60
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 
+def _bundled_candidates(name: str) -> list[Path]:
+    """Where a PyInstaller build may have placed a bundled binary.
+
+    PyInstaller 6 collects bundled binaries into `_internal/` next to the
+    executable (also exposed as `sys._MEIPASS`); older one-dir layouts used
+    the executable's own directory. Check all of them.
+    """
+    if not getattr(sys, "frozen", False):
+        return []
+    exe_dir = Path(sys.executable).parent
+    candidates = [exe_dir / name, exe_dir / "_internal" / name]
+    meipass = getattr(sys, "_MEIPASS", "")
+    if meipass:
+        candidates.append(Path(meipass) / name)
+    return candidates
+
+
 def _default_binary() -> str | None:
     override = os.getenv("MODELSHELF_BIN", "").strip()
     if override:
         return override if Path(override).exists() else None
-    # Packaged desktop builds (PyInstaller) ship modelshelf next to the
-    # backend executable; see desktop/backend.spec.
-    if getattr(sys, "frozen", False):
-        name = "modelshelf.exe" if os.name == "nt" else "modelshelf"
-        bundled = Path(sys.executable).parent / name
+    # Packaged desktop builds (PyInstaller) ship modelshelf with the
+    # backend; see desktop/backend.spec.
+    name = "modelshelf.exe" if os.name == "nt" else "modelshelf"
+    for bundled in _bundled_candidates(name):
         if bundled.exists():
             return str(bundled)
     return shutil.which("modelshelf")

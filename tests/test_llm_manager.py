@@ -37,15 +37,25 @@ def make_runner(table: dict[tuple[str, ...], Any], calls: list[list[str]]):
 
 
 def test_bundled_binary_is_found_in_frozen_builds(tmp_path, monkeypatch) -> None:
-    # Packaged desktop builds ship modelshelf next to the backend
-    # executable (desktop/backend.spec); resolution must find it there.
+    # Packaged desktop builds ship modelshelf with the backend executable
+    # (desktop/backend.spec); resolution must find it in every PyInstaller
+    # one-dir layout: next to the executable (<=5) or in _internal/ (6+).
     name = "modelshelf.exe" if os.name == "nt" else "modelshelf"
-    bundled = tmp_path / name
-    bundled.write_bytes(b"")
     monkeypatch.delenv("MODELSHELF_BIN", raising=False)
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "local-transcriber-backend"))
-    assert llm_manager._default_binary() == str(bundled)
+
+    legacy = tmp_path / "legacy"
+    legacy.mkdir()
+    (legacy / name).write_bytes(b"")
+    monkeypatch.setattr(sys, "executable", str(legacy / "local-transcriber-backend"))
+    assert llm_manager._default_binary() == str(legacy / name)
+
+    modern = tmp_path / "modern"
+    (modern / "_internal").mkdir(parents=True)
+    (modern / "_internal" / name).write_bytes(b"")
+    monkeypatch.setattr(sys, "executable", str(modern / "local-transcriber-backend"))
+    monkeypatch.setattr(sys, "_MEIPASS", str(modern / "_internal"), raising=False)
+    assert llm_manager._default_binary() == str(modern / "_internal" / name)
 
 
 def test_without_binary_the_feature_is_unavailable() -> None:

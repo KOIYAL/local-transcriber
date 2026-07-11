@@ -23,6 +23,7 @@ from app.config import (
     SETTINGS,
 )
 from app.apple_intelligence import AppleIntelligenceEngine
+from app.discord_presence import DiscordPresence, build_activity
 from app.jobs import JobManager
 from app.llm_manager import LlmManager
 from app.model_manager import ModelManager
@@ -47,7 +48,15 @@ async def lifespan(app: FastAPI):
     app.state.summary_llm = LlmManager()
     app.state.summarizer = SummaryEngine()
     app.state.apple_ai = AppleIntelligenceEngine()
+    # Discord Rich Presence (optional; silent no-op when APP_ID is empty,
+    # Discord is not running, or LT_DISCORD_PRESENCE=off. Never shows file
+    # names or transcript content).
+    app.state.discord = DiscordPresence(
+        activity_provider=lambda: build_activity(app.state.jobs)
+    )
+    app.state.discord.start()
     yield
+    app.state.discord.stop()
     app.state.jobs.shutdown()
 
 

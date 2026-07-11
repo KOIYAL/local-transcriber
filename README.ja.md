@@ -18,7 +18,11 @@
 
 ## 一般ユーザー向けWindowsアプリ
 
-ポータブル版は次のフォルダーに生成されます。
+ビルド済みのポータブルZIPは
+[GitHub Releases](https://github.com/KOIYAL/local-transcriber/releases/latest)
+からダウンロードできます。
+
+自分でビルドする場合、ポータブル版は次のフォルダーに生成されます。
 
 ```text
 dist\electron\LocalTranscriber-win32-x64
@@ -45,7 +49,12 @@ After the first setup, transcription can run offline.
 
 ## 一般ユーザー向けmacOSアプリ
 
-Mac版はDMGとして生成されます。
+Apple Silicon向けのテストビルド（未署名）を
+[GitHub Releases](https://github.com/KOIYAL/local-transcriber/releases/latest)
+で配布しています。未署名のためGatekeeperの警告が出ます。正式版は
+コード署名対応後に公開予定です。
+
+自分でビルドする場合、Mac版はDMGとして生成されます。
 
 ```text
 dist/LocalTranscriber-macOS-<arch>.dmg

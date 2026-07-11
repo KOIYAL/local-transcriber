@@ -28,8 +28,10 @@ anything leaving your computer. No account, no API key, no cloud.
 
 ## Get it
 
-- **Download**: free builds are available from the
-  [KOIYAL website](https://koiyal.com/tools/local-transcriber).
+- **Download**: free builds are on
+  [GitHub Releases](https://github.com/KOIYAL/local-transcriber/releases/latest)
+  — a Windows portable zip and a macOS (Apple Silicon) test build. The
+  product page is [koiyal.com/tools/local-transcriber](https://koiyal.com/tools/local-transcriber).
 - **Run from source** (Python 3.10+):
 
   ```console

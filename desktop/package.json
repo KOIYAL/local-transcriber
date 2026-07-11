@@ -5,7 +5,7 @@
   "description": "Simple local audio and video transcription for Windows and macOS",
   "main": "main.js",
   "author": "Local Transcriber",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "start": "electron .",
     "package:electron": "electron-packager . LocalTranscriber --platform=win32 --arch=x64 --out=../dist/electron --overwrite --asar --icon=../assets/app-icon.ico --extra-resource=../dist/backend/local-transcriber-backend"

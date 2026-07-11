@@ -1,0 +1,124 @@
+name: Build macOS app
+
+# Cloud Mac build (no local Mac needed): compiles the Apple Intelligence
+# helper, the PyInstaller backend, and the Electron app, then creates the
+# DMG via build-macos.sh. Signing and notarization switch on automatically
+# once the corresponding secrets exist; without them the artifact is an
+# unsigned test build. See docs/CLOUD-MAC-BUILD.md for the secrets.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: macos-26 # Apple Silicon; Xcode 26 = FoundationModels SDK
+    timeout-minutes: 90
+    env:
+      # Prebuilt Metal wheels: avoids compiling llama-cpp-python from source.
+      PIP_EXTRA_INDEX_URL: https://abetlen.github.io/llama-cpp-python/whl/metal
+      MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+      MODELSHELF_REPO_TOKEN: ${{ secrets.MODELSHELF_REPO_TOKEN }}
+      APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run the test suite
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check -e ".[dev]"
+          .venv/bin/python -m pytest
+
+      # Optional: the modelshelf fallback engine. Needs a PAT with access to
+      # KOIYAL/modelshelf while that repo is private; without it the build is
+      # Apple Intelligence-only (the app hides the local-LLM path).
+      - name: Fetch the modelshelf fallback binary
+        if: ${{ env.MODELSHELF_REPO_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ env.MODELSHELF_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list --repo KOIYAL/modelshelf \
+            --workflow release-binaries.yml --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId')
+          mkdir -p vendor
+          gh run download "$run_id" --repo KOIYAL/modelshelf \
+            -n modelshelf-macos-arm64 -D vendor
+          chmod +x vendor/modelshelf
+          vendor/modelshelf --version
+
+      - name: Import the signing certificate
+        if: ${{ env.MAC_CERT_P12_BASE64 != '' }}
+        env:
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          echo "$MAC_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 3600 build.keychain
+          security import "$RUNNER_TEMP/cert.p12" -k build.keychain \
+            -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Configure notarization credentials
+        if: ${{ env.APPLE_API_KEY_P8_BASE64 != '' }}
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          echo "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
+          xcrun notarytool store-credentials ci-notary \
+            --key "$RUNNER_TEMP/notary-key.p8" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID"
+          rm "$RUNNER_TEMP/notary-key.p8"
+          echo "MAC_NOTARY_PROFILE=ci-notary" >> "$GITHUB_ENV"
+
+      - name: Build the app and DMG
+        env:
+          MAC_CODESIGN_IDENTITY: ${{ secrets.MAC_CODESIGN_IDENTITY }}
+        run: ./build-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalTranscriber-macOS-arm64
+          path: dist/LocalTranscriber-macOS-*.dmg
+          if-no-files-found: error
+
+      - name: Build summary
+        run: |
+          {
+            echo "## macOS build"
+            if [ -n "${MAC_CODESIGN_IDENTITY:-}" ]; then
+              echo "- Signed: yes"
+            else
+              echo "- Signed: **no** (test build; set the MAC_CERT_* secrets)"
+            fi
+            if [ -n "${MAC_NOTARY_PROFILE:-}" ]; then
+              echo "- Notarized: yes"
+            else
+              echo "- Notarized: **no** (set the APPLE_API_* secrets)"
+            fi
+            if [ -f vendor/modelshelf ]; then
+              echo "- Local-LLM fallback engine: bundled"
+            else
+              echo "- Local-LLM fallback engine: **not bundled** (Apple Intelligence only)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          MAC_CODESIGN_IDENTITY: ${{ secrets.MAC_CODESIGN_IDENTITY }}

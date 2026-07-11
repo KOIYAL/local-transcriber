@@ -16,8 +16,10 @@ jobs:
     runs-on: macos-26 # Apple Silicon; Xcode 26 = FoundationModels SDK
     timeout-minutes: 90
     env:
-      # Prebuilt Metal wheels: avoids compiling llama-cpp-python from source.
-      PIP_EXTRA_INDEX_URL: https://abetlen.github.io/llama-cpp-python/whl/metal
+      # llama-cpp-python is built from source here (the runner has Xcode +
+      # CMake, and Metal is enabled by default on Apple Silicon). The
+      # prebuilt-wheel indexes serve occasionally corrupt files (BadZipFile
+      # on install), so they are deliberately not used.
       MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
       MODELSHELF_REPO_TOKEN: ${{ secrets.MODELSHELF_REPO_TOKEN }}
       APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}

@@ -21,7 +21,6 @@ jobs:
       # prebuilt-wheel indexes serve occasionally corrupt files (BadZipFile
       # on install), so they are deliberately not used.
       MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      MODELSHELF_REPO_TOKEN: ${{ secrets.MODELSHELF_REPO_TOKEN }}
       APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
     steps:
       - uses: actions/checkout@v4
@@ -40,21 +39,14 @@ jobs:
           .venv/bin/python -m pip install --disable-pip-version-check -e ".[dev]"
           .venv/bin/python -m pytest
 
-      # Optional: the modelshelf fallback engine. Needs a PAT with access to
-      # KOIYAL/modelshelf while that repo is private; without it the build is
-      # Apple Intelligence-only (the app hides the local-LLM path).
+      # The modelshelf fallback engine, from the public modelshelf release.
       - name: Fetch the modelshelf fallback binary
-        if: ${{ env.MODELSHELF_REPO_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ env.MODELSHELF_REPO_TOKEN }}
         run: |
           set -euo pipefail
-          run_id=$(gh run list --repo KOIYAL/modelshelf \
-            --workflow release-binaries.yml --status success \
-            --limit 1 --json databaseId --jq '.[0].databaseId')
           mkdir -p vendor
-          gh run download "$run_id" --repo KOIYAL/modelshelf \
-            -n modelshelf-macos-arm64 -D vendor
+          curl -fL --retry 3 \
+            https://github.com/KOIYAL/modelshelf/releases/latest/download/modelshelf-macos-arm64 \
+            -o vendor/modelshelf
           chmod +x vendor/modelshelf
           vendor/modelshelf --version
 

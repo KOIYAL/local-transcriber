@@ -12,10 +12,9 @@ if not exist "%PYTHON%" (
 
 if not exist "vendor\modelshelf.exe" (
     echo vendor\modelshelf.exe is missing - the summary feature needs it.
-    echo Get it from the modelshelf "Release binaries" workflow artifact:
-    echo   gh run download --repo KOIYAL/modelshelf -n modelshelf-windows-x64 -D vendor
-    echo or copy it from the WSL checkout:
-    echo   copy \\wsl.localhost\Ubuntu\home\zenkutsu\local-transcriber\vendor\modelshelf.exe vendor\
+    echo Download it from the public modelshelf release:
+    echo   mkdir vendor
+    echo   curl -fL https://github.com/KOIYAL/modelshelf/releases/latest/download/modelshelf-windows-x64.exe -o vendor\modelshelf.exe
     exit /b 1
 )
 

@@ -22,11 +22,10 @@
 | `APPLE_API_KEY_P8_BASE64` | App Store Connect API キー(.p8) の base64 | App Store Connect → ユーザとアクセス → 統合 → App Store Connect API（ロール: Developer 以上） |
 | `APPLE_API_KEY_ID` | 上記キーの Key ID | 同上の画面 |
 | `APPLE_API_ISSUER_ID` | Issuer ID | 同上の画面 |
-| `MODELSHELF_REPO_TOKEN` | KOIYAL/modelshelf を読める PAT（`repo` + Actions read） | modelshelf が private の間だけ必要。公開後はワークフローを無トークン化できる |
 
-`MODELSHELF_REPO_TOKEN` が無い場合、ローカルLLMフォールバックは同梱されず
-**Apple Intelligence 専用ビルド**になる（対応 Mac では要約が動く。非対応 Mac
-では要約UIが出ないだけで文字起こしは通常どおり）。
+ローカルLLMフォールバック用の modelshelf バイナリは、公開リポジトリの
+[Release](https://github.com/KOIYAL/modelshelf/releases) から**無認証で自動取得**
+される（トークン不要）。
 
 ## コストの目安
 

@@ -100,6 +100,30 @@
             </svg>
           </button>
         </form>
+
+        <div class="record-divider" aria-hidden="true">
+          <span data-recorder-i18n="orRecord">Or record right here</span>
+        </div>
+        <div id="recorder" class="recorder">
+          <div class="recorder-info">
+            <strong data-recorder-i18n="recordTitle">Record a meeting</strong>
+            <span data-recorder-i18n="recordPrivacy">Audio stays on this computer. Nothing is sent online.</span>
+          </div>
+          <div class="recorder-controls">
+            <button id="record-toggle" class="primary-button record-button" type="button">
+              <span class="record-dot" aria-hidden="true"></span>
+              <span id="record-toggle-label">Start recording</span>
+            </button>
+            <button id="record-pause" class="secondary-button" type="button" hidden>Pause</button>
+            <button id="record-cancel" class="icon-button" type="button" hidden aria-label="Discard recording">×</button>
+          </div>
+          <div id="recorder-live" class="recorder-live" hidden aria-live="polite">
+            <span id="record-elapsed" class="record-elapsed">00:00</span>
+            <div class="level-track"><div id="level-bar" class="level-bar"></div></div>
+            <span id="record-state-label"></span>
+          </div>
+          <p id="record-warning" class="record-warning" hidden></p>
+        </div>
       </section>
 
       <section id="progress-panel" class="progress-panel" hidden aria-live="polite">
@@ -183,5 +207,6 @@
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
   <script src="/static/app.js" defer></script>
+  <script src="/static/recorder.js" defer></script>
 </body>
 </html>

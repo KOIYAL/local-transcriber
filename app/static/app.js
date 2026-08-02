@@ -613,6 +613,22 @@ async function startSummarize() {
   }
 }
 
+// Minimal bridge for recorder.js: a recording that just stopped joins the
+// same progress/result pipeline as an uploaded file.
+window.LT = {
+  getLocale: () => currentLocale,
+  showToast,
+  trackJob: async (job) => {
+    currentJob = job;
+    resultPanel.hidden = true;
+    progressPanel.hidden = false;
+    progressBar.style.background = "";
+    updateProgress(job);
+    progressPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    await pollJob(job.id);
+  },
+};
+
 async function pollJob(jobId) {
   window.clearTimeout(pollTimer);
   try {

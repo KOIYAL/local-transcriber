@@ -740,3 +740,88 @@ footer p {
   color: var(--accent-dark);
   font-size: 0.85rem;
 }
+
+/* ── In-app recording (Phase 1) ─────────────────────── */
+.record-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 26px 0 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.record-divider::before,
+.record-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.recorder-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.recorder-info span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.recorder-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.record-button .record-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e15b4d;
+  flex-shrink: 0;
+}
+.record-button.is-recording .record-dot {
+  animation: record-pulse 1.2s ease-in-out infinite;
+}
+@keyframes record-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+.recorder-live {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.record-elapsed {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 52px;
+}
+.level-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.level-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+.record-warning {
+  margin: 0;
+  color: var(--amber);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.recorder-controls button {
+  white-space: nowrap;
+}

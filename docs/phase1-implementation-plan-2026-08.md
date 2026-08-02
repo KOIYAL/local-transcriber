@@ -48,6 +48,6 @@
 | C3 | **完了**（2026-08-03・フェイクマイクでE2Eスモーク済み・webm連結デコード実証） |
 | C4 | **完了**（C1のサーバー追跡＋C3のレベル送信/警告表示で実装） |
 | C5 | **完了**（2026-08-03・トレイ常駐＋状態別アイコン5種＋閉じる=トレイ格納＋録音中終了警告＋自動起動既定オフ。アイコンは `desktop/assets/tray/generate_tray_icons.py` で決定論生成。実機でのトレイ表示確認はC7へ） |
-| C6 | 未着手 |
+| C6 | **完了**（2026-08-03・entitlementsに `com.apple.security.device.audio-input` 追加・`extend-info.mac.plist` で NSMicrophoneUsageDescription（ja/en併記・外部送信なし明記）を Info.plist へ注入。権限拒否時のエラー表示はC3の micDenied トーストが担当。実機TCCプロンプト確認はC7へ） |
 | C7 | 未着手（Windows実機は人間） |
 | C8 | 未着手 |

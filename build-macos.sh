@@ -142,6 +142,7 @@ PACKAGER_ARGS=(
   "--extra-resource=../dist/backend-macos/local-transcriber-backend"
   "--app-bundle-id=com.koiyal.localtranscriber"
   "--app-category-type=public.app-category.productivity"
+  "--extend-info=extend-info.mac.plist"
 )
 
 if [[ -n "${MAC_CODESIGN_IDENTITY:-}" ]]; then

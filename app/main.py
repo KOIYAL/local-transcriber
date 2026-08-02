@@ -23,6 +23,7 @@ from app.config import (
     SETTINGS,
 )
 from app.apple_intelligence import AppleIntelligenceEngine
+from app.capture import RecordingError, RecordingManager
 from app.discord_presence import DiscordPresence, build_activity
 from app.jobs import JobManager
 from app.llm_manager import LlmManager
@@ -45,6 +46,11 @@ async def lifespan(app: FastAPI):
         directory.mkdir(parents=True, exist_ok=True)
     app.state.models = ModelManager(SETTINGS)
     app.state.jobs = JobManager(SETTINGS)
+    app.state.recorder = RecordingManager(
+        SETTINGS.upload_dir,
+        submit_job=app.state.jobs.submit,
+        max_bytes=SETTINGS.max_upload_bytes,
+    )
     app.state.summary_llm = LlmManager()
     app.state.summarizer = SummaryEngine()
     app.state.apple_ai = AppleIntelligenceEngine()
@@ -78,6 +84,10 @@ def job_manager(request: Request) -> JobManager:
 
 def model_manager(request: Request) -> ModelManager:
     return request.app.state.models
+
+
+def recording_manager(request: Request) -> RecordingManager:
+    return request.app.state.recorder
 
 
 def llm_manager(request: Request) -> LlmManager:
@@ -244,6 +254,93 @@ async def create_job(
     }
     job = job_manager(request).submit(original_name, stored_path, options)
     return job.as_dict()
+
+
+def _recording_http_error(exc: RecordingError) -> HTTPException:
+    return HTTPException(status_code=exc.http_status, detail=error_detail(exc.code))
+
+
+@app.get("/api/recording/status")
+async def recording_status(request: Request) -> dict:
+    return recording_manager(request).status()
+
+
+@app.post("/api/recording/start", status_code=201)
+async def start_recording(
+    request: Request,
+    mime: Annotated[str, Form()] = "audio/webm",
+) -> dict:
+    # Recording is gated on a ready model on purpose: it is kinder to fail
+    # before the meeting starts than to discover after it that the recording
+    # cannot be transcribed.
+    if not model_manager(request).status()["ready"]:
+        raise HTTPException(status_code=409, detail=error_detail("setup_incomplete"))
+    try:
+        return recording_manager(request).start(mime)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
+
+
+@app.post("/api/recording/{session_id}/chunk")
+async def append_recording_chunk(session_id: str, request: Request) -> dict:
+    data = await request.body()
+    level_header = request.headers.get("x-audio-level")
+    level: float | None = None
+    if level_header is not None:
+        try:
+            level = max(0.0, min(1.0, float(level_header)))
+        except ValueError:
+            level = None
+    try:
+        return recording_manager(request).append_chunk(session_id, data, level)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
+
+
+@app.post("/api/recording/{session_id}/pause")
+async def pause_recording(session_id: str, request: Request) -> dict:
+    try:
+        return recording_manager(request).pause(session_id)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
+
+
+@app.post("/api/recording/{session_id}/resume")
+async def resume_recording(session_id: str, request: Request) -> dict:
+    try:
+        return recording_manager(request).resume(session_id)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
+
+
+@app.post("/api/recording/{session_id}/stop", status_code=202)
+async def stop_recording(
+    session_id: str,
+    request: Request,
+    vad_filter: Annotated[bool, Form()] = True,
+) -> dict:
+    setup_state = model_manager(request).status()
+    options = {
+        "model": setup_state["model"],
+        "language": None,
+        "task": "transcribe",
+        "vad_filter": vad_filter,
+        "beam_size": 5,
+        "initial_prompt": "",
+    }
+    try:
+        job = recording_manager(request).stop(session_id, options)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
+    return job.as_dict()
+
+
+@app.delete("/api/recording/{session_id}", status_code=204)
+async def cancel_recording(session_id: str, request: Request) -> None:
+    try:
+        recording_manager(request).cancel(session_id)
+    except RecordingError as exc:
+        raise _recording_http_error(exc) from exc
 
 
 @app.get("/api/jobs/{job_id}")

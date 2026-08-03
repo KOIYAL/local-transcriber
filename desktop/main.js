@@ -8,6 +8,7 @@ const {
   shell,
 } = require("electron");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 
@@ -22,6 +23,38 @@ let trayState = "idle"; // idle | recording | paused | transcribing | error
 let latestJob = null;
 let latestJobKey = "";
 let quitConfirmed = false;
+let settings = { exportDirectory: null };
+
+function settingsPath() {
+  return path.join(app.getPath("userData"), "settings.json");
+}
+
+function loadSettings() {
+  try {
+    settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), "utf8")) };
+  } catch {
+    // First run or unreadable file: keep defaults.
+  }
+}
+
+function saveSettings() {
+  try {
+    fs.writeFileSync(settingsPath(), `${JSON.stringify(settings, null, 2)}\n`);
+  } catch {
+    // Non-fatal: the choice just won't persist.
+  }
+}
+
+// "transcript.txt" -> "transcript (2).txt" when the name is already taken.
+function uniqueSavePath(directory, filename) {
+  const extension = path.extname(filename);
+  const stem = path.basename(filename, extension);
+  let candidate = path.join(directory, filename);
+  for (let n = 2; fs.existsSync(candidate); n += 1) {
+    candidate = path.join(directory, `${stem} (${n})${extension}`);
+  }
+  return candidate;
+}
 
 function localizedMessage(ja, en) {
   return app.getLocale().toLowerCase().startsWith("ja") ? ja : en;
@@ -37,6 +70,11 @@ const TRAY_TEXT = {
   latestJobNone: ["直近のジョブ: なし", "Latest job: none"],
   latestJobPrefix: ["直近のジョブ: ", "Latest job: "],
   autoLaunch: ["ログイン時に自動起動", "Start at login"],
+  exportFolder: ["書き出し先フォルダ", "Export folder"],
+  exportAskEveryTime: ["毎回ダイアログで選ぶ", "Ask every time"],
+  exportChoose: ["フォルダを選ぶ...", "Choose folder..."],
+  exportOpen: ["書き出し先を開く", "Open export folder"],
+  exportReset: ["毎回選ぶに戻す", "Back to asking every time"],
   quit: ["終了", "Quit"],
   quitCancel: ["キャンセル", "Cancel"],
   quitConfirm: ["終了する", "Quit anyway"],
@@ -196,6 +234,33 @@ function trayIconFor(state) {
   );
 }
 
+async function chooseExportDirectory() {
+  const result = await dialog.showOpenDialog({
+    title: t("exportFolder"),
+    defaultPath: settings.exportDirectory || app.getPath("downloads"),
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled || !result.filePaths.length) return;
+  settings.exportDirectory = result.filePaths[0];
+  saveSettings();
+  rebuildTrayMenu();
+}
+
+// With an export folder configured, downloads (TXT/SRT/VTT/JSON/SUMMARY)
+// save there silently; otherwise Electron's default save dialog appears.
+function installDownloadHandler(webSession) {
+  webSession.on("will-download", (event, item) => {
+    const directory = settings.exportDirectory;
+    if (!directory) return;
+    try {
+      fs.mkdirSync(directory, { recursive: true });
+      item.setSavePath(uniqueSavePath(directory, item.getFilename()));
+    } catch {
+      // Fall back to the default save dialog.
+    }
+  });
+}
+
 function showMainWindow() {
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -254,6 +319,33 @@ function rebuildTrayMenu() {
       label: t("openDataFolder"),
       enabled: Boolean(dataDirectory),
       click: () => shell.openPath(dataDirectory),
+    },
+    {
+      label: t("exportFolder"),
+      submenu: [
+        {
+          label: settings.exportDirectory || t("exportAskEveryTime"),
+          enabled: false,
+        },
+        { type: "separator" },
+        { label: t("exportChoose"), click: chooseExportDirectory },
+        ...(settings.exportDirectory
+          ? [
+              {
+                label: t("exportOpen"),
+                click: () => shell.openPath(settings.exportDirectory),
+              },
+              {
+                label: t("exportReset"),
+                click: () => {
+                  settings.exportDirectory = null;
+                  saveSettings();
+                  rebuildTrayMenu();
+                },
+              },
+            ]
+          : []),
+      ],
     },
   );
   if (process.platform === "win32" || process.platform === "darwin") {
@@ -376,7 +468,9 @@ if (!lock) {
   });
 
   app.whenReady().then(async () => {
+    loadSettings();
     createWindow();
+    installDownloadHandler(mainWindow.webContents.session);
     try {
       const url = await startBackend();
       await mainWindow.loadURL(url);

@@ -20,6 +20,9 @@
   誤選択の検知）。録音中にアプリを終了しようとすると確認ダイアログ
 - ウィンドウを閉じてもトレイに常駐し、録音は継続します
 - ログイン時の自動起動をトレイメニューから設定可能（既定はオフ）
+- 書き出し先フォルダの指定: トレイメニューでフォルダを選ぶと、TXT/SRT/
+  VTT/JSON/要約のダウンロードが毎回のダイアログなしでそこへ保存されます
+  （未設定なら従来どおり保存ダイアログ。同名ファイルは連番で回避）
 
 **その他**
 
@@ -41,6 +44,9 @@
   confirmation
 - Closing the window now minimizes to the tray; recording continues
 - Optional start-at-login toggle in the tray menu (off by default)
+- Configurable export folder: pick a folder from the tray menu and every
+  TXT/SRT/VTT/JSON/summary download saves there without a dialog (leave it
+  unset to keep the save dialog; name clashes get numbered suffixes)
 
 **Also**
 
@@ -58,6 +64,8 @@
    - 一時停止/再開・録音破棄・無音警告（マイクをミュートして30秒）
    - ウィンドウを閉じる→トレイから再表示・録音中に終了→警告ダイアログ
    - トレイメニュー: 保存先フォルダ・直近ジョブ・自動起動チェックボックス
+   - 書き出し先フォルダ: トレイで設定→TXTダウンロードが無ダイアログで
+     そのフォルダへ入る・「毎回選ぶに戻す」でダイアログ復帰
 5. zipをGitHub Releasesへ（**リリース公開は人間承認**）
 
 ## macOS 側でやること

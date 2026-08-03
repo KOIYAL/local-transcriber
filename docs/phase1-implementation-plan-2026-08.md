@@ -49,5 +49,5 @@
 | C4 | **完了**（C1のサーバー追跡＋C3のレベル送信/警告表示で実装） |
 | C5 | **完了**（2026-08-03・トレイ常駐＋状態別アイコン5種＋閉じる=トレイ格納＋録音中終了警告＋自動起動既定オフ。アイコンは `desktop/assets/tray/generate_tray_icons.py` で決定論生成。実機でのトレイ表示確認はC7へ） |
 | C6 | **完了**（2026-08-03・entitlementsに `com.apple.security.device.audio-input` 追加・`extend-info.mac.plist` で NSMicrophoneUsageDescription（ja/en併記・外部送信なし明記）を Info.plist へ注入。権限拒否時のエラー表示はC3の micDenied トーストが担当。実機TCCプロンプト確認はC7へ） |
-| C7 | 未着手（Windows実機は人間） |
-| C8 | 未着手 |
+| C7 | 未着手（Windows実機は人間。チェック項目は `RELEASE-0.6.0.md` §Windows側 4 に列挙済み） |
+| C8 | **完了**（2026-08-03・C7と順序入替で先行実施。0.6.0へ版上げ・README ja/en・STORE_SUBMISSION・録音UIスクショ2枚・`RELEASE-0.6.0.md`（リリースノート原稿ja/en＋C7チェックリスト）。リリース公開は人間承認） |

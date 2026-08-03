@@ -13,6 +13,13 @@ anything leaving your computer. No account, no API key, no cloud.
 
 - **Fully local**: transcription (faster-whisper) and summarization run on
   your machine; source files are deleted after processing by default
+- **Record meetings in the app**: one button records from the microphone
+  and feeds the audio straight into transcription when you stop. Chunks
+  are saved to disk every few seconds while recording, so a crash never
+  loses more than the last moments. Audio stays on this computer
+- **Tray resident**: the app lives in the system tray with a state-shaped
+  icon (idle / recording / paused / transcribing), tray controls for
+  recording, and a warning if you try to quit mid-recording
 - **Zero-setup model management**: on first run the app picks a Whisper
   model that fits this computer's memory and downloads it automatically
 - **Summaries on completed transcripts**: one click produces a
@@ -25,6 +32,8 @@ anything leaving your computer. No account, no API key, no cloud.
   works offline after the first setup
 
 ![Summary result with SUMMARY.TXT export](docs/screenshots/summary-3-result.png)
+
+![In-app meeting recording with live level meter](docs/screenshots/recording-2-recording.png)
 
 ## Get it
 

@@ -40,6 +40,8 @@ Windows PC上で文字に変換するシンプルなアプリです。
 主な機能:
 
 - 音声・動画ファイルの文字起こし
+- アプリ内でのマイク録音（停止と同時に文字起こしへ）
+- タスクトレイ常駐（録音・文字起こしの状態をアイコンで表示）
 - 日本語・英語などの音声言語を自動検出
 - PCのメモリに応じたAIモデルの自動選択
 - TXT、SRT、VTT、JSON形式での書き出し
@@ -57,6 +59,11 @@ Windows PC上で文字に変換するシンプルなアプリです。
 ### Product features
 
 - PC内で完結するローカルAI文字起こし
+- アプリ内でのマイク録音（会議をその場で録音し、停止と同時に文字起こし）
+- 録音中は数秒ごとにPC内へ保存（途中で強制終了しても直前までの音声が残る）
+- タスクトレイ常駐（待機・録音中・一時停止・文字起こし中をアイコンの形で表示）
+- トレイメニューから録音の開始・停止・一時停止
+- 録音音声を外部に送信しない設計
 - 音声・動画ファイルに対応
 - ドラッグ＆ドロップまたはファイル選択で簡単操作
 - PCのメモリに応じてAIモデルを自動選択
@@ -124,6 +131,11 @@ in-app purchases, or external API usage fees.
 
 - Local AI transcription processed on your PC
 - Supports audio and video files
+- In-app microphone recording that flows straight into transcription
+- Recording is saved to disk every few seconds for crash durability
+- System tray resident with state-shaped icons (idle, recording, paused, transcribing)
+- Start, pause, and stop recording from the tray menu
+- Recorded audio never leaves this computer
 - Simple drag-and-drop or file selection
 - Automatically selects an AI model based on available memory
 - Automatically downloads the required AI model on first launch

@@ -1,0 +1,47 @@
+name: Build Windows app
+
+# Cloud Windows build (no local Windows checkout needed): creates the venv,
+# fetches the public modelshelf.exe, then runs build-windows.cmd to produce
+# the portable zip. The zip is uploaded as a workflow artifact — it is NOT
+# published to Releases automatically.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create virtual environment
+        shell: cmd
+        run: python -m venv .venv
+
+      - name: Fetch modelshelf.exe
+        shell: cmd
+        run: |
+          mkdir vendor
+          curl -fL https://github.com/KOIYAL/modelshelf/releases/latest/download/modelshelf-windows-x64.exe -o vendor\modelshelf.exe
+
+      - name: Build portable app
+        shell: cmd
+        run: build-windows.cmd
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalTranscriber-win-x64
+          path: dist/LocalTranscriber-*-win-x64.zip
+          if-no-files-found: error

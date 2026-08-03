@@ -75,6 +75,7 @@ const TRAY_TEXT = {
   exportChoose: ["フォルダを選ぶ...", "Choose folder..."],
   exportOpen: ["書き出し先を開く", "Open export folder"],
   exportReset: ["毎回選ぶに戻す", "Back to asking every time"],
+  openSoundSettings: ["OSのサウンド設定を開く", "Open system sound settings"],
   quit: ["終了", "Quit"],
   quitCancel: ["キャンセル", "Cancel"],
   quitConfirm: ["終了する", "Quit anyway"],
@@ -348,6 +349,20 @@ function rebuildTrayMenu() {
       ],
     },
   );
+  if (process.platform === "win32") {
+    items.push({
+      label: t("openSoundSettings"),
+      click: () => shell.openExternal("ms-settings:sound"),
+    });
+  } else if (process.platform === "darwin") {
+    items.push({
+      label: t("openSoundSettings"),
+      click: () =>
+        shell.openExternal(
+          "x-apple.systempreferences:com.apple.Sound-Settings.extension",
+        ),
+    });
+  }
   if (process.platform === "win32" || process.platform === "darwin") {
     items.push({
       label: t("autoLaunch"),

@@ -39,6 +39,14 @@
 - 各コミットメッセージは `phase1: C<n> <内容>` 形式
 - 次に着手すべきコミットは本ファイルの下の進捗表を正とする
 
+## 追補（2026-08-03オーナーfeedback・0.6.0に同梱）
+
+| # | 内容 | 触るファイル |
+|---|---|---|
+| C9 | マイク選択: 録音UIに入力デバイスのドロップダウン（localStorage永続・devicechange追従）＋トレイに「OSのサウンド設定を開く」 | recorder.js, index.html, styles.css, desktop/main.js |
+| C10 | アプリ画面からの書き出し先設定: preload+IPCで設定セクション（トレイと同じsettings.jsonを共有） | desktop/preload.js, desktop/main.js, app/static/settings.js, index.html |
+| C11 | モデルの手動アップグレード: 自動切替はせず「更新を確認」ボタン→推奨モデルが上位なら確認→ダウンロード→切替（GET /api/models/upgrade-check・POST /api/models/upgrade） | app/model_manager.py, app/main.py, settings.js, tests/ |
+
 ## 進捗
 
 | コミット | 状態 |

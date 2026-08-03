@@ -825,3 +825,23 @@ footer p {
 .recorder-controls button {
   white-space: nowrap;
 }
+.mic-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted, #64748b);
+}
+.mic-row select {
+  flex: 1;
+  min-width: 0;
+  max-width: 24rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}

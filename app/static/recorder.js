@@ -24,6 +24,8 @@ const RECORDER_STRINGS = {
       "Microphone access was denied. Allow microphone use for this app and try again.",
     recorderUnsupported: "Recording is not supported in this environment.",
     recordFailed: "Recording failed.",
+    micLabel: "Microphone",
+    micDefault: "System default microphone",
   },
   ja: {
     orRecord: "または、その場で録音",
@@ -43,6 +45,8 @@ const RECORDER_STRINGS = {
       "マイクの使用が許可されませんでした。このアプリのマイク利用を許可して、もう一度お試しください。",
     recorderUnsupported: "この環境では録音を利用できません。",
     recordFailed: "録音に失敗しました。",
+    micLabel: "マイク",
+    micDefault: "システム既定のマイク",
   },
 };
 
@@ -80,11 +84,54 @@ if (recorderRoot) {
     return RECORDER_STRINGS[locale][key] || RECORDER_STRINGS.en[key] || key;
   };
 
+  const micSelect = document.querySelector("#mic-select");
+  const MIC_STORAGE_KEY = "lt.mic-device-id";
+
+  const refreshMicrophones = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      micSelect.closest(".mic-row").hidden = true;
+      return;
+    }
+    const saved = window.localStorage.getItem(MIC_STORAGE_KEY) || "";
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const mics = devices.filter((device) => device.kind === "audioinput");
+    const options = [{ id: "", label: rt("micDefault") }];
+    // Device labels stay empty until the first permission grant; until then
+    // only the default entry is offered.
+    for (const [index, mic] of mics.entries()) {
+      if (!mic.deviceId || mic.deviceId === "default") continue;
+      options.push({
+        id: mic.deviceId,
+        label: mic.label || `${rt("micLabel")} ${index + 1}`,
+      });
+    }
+    micSelect.replaceChildren(
+      ...options.map(({ id, label }) => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = label;
+        option.selected = id === saved;
+        return option;
+      }),
+    );
+  };
+
+  micSelect.addEventListener("change", () => {
+    window.localStorage.setItem(MIC_STORAGE_KEY, micSelect.value);
+  });
+  navigator.mediaDevices?.addEventListener?.("devicechange", refreshMicrophones);
+
+  const microphoneConstraints = () => {
+    const saved = window.localStorage.getItem(MIC_STORAGE_KEY);
+    return saved ? { deviceId: { exact: saved } } : true;
+  };
+
   const localize = () => {
     document.querySelectorAll("[data-recorder-i18n]").forEach((element) => {
       element.textContent = rt(element.dataset.recorderI18n);
     });
     cancelButton.setAttribute("aria-label", rt("recordCancelLabel"));
+    refreshMicrophones();
     syncControls();
   };
 
@@ -103,6 +150,7 @@ if (recorderRoot) {
     pauseButton.hidden = state === "idle";
     cancelButton.hidden = state === "idle";
     livePanel.hidden = state === "idle";
+    micSelect.disabled = state !== "idle";
     pauseButton.textContent = state === "paused" ? rt("recordResume") : rt("recordPause");
     stateLabel.textContent =
       state === "paused"
@@ -192,12 +240,28 @@ if (recorderRoot) {
     }
     toggleButton.disabled = true;
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      window.LT?.showToast(rt("micDenied"));
-      toggleButton.disabled = false;
-      return;
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: microphoneConstraints(),
+      });
+    } catch (error) {
+      if (error?.name === "OverconstrainedError") {
+        // The saved microphone is gone (unplugged); fall back to the default.
+        window.localStorage.removeItem(MIC_STORAGE_KEY);
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          window.LT?.showToast(rt("micDenied"));
+          toggleButton.disabled = false;
+          return;
+        }
+        refreshMicrophones();
+      } else {
+        window.LT?.showToast(rt("micDenied"));
+        toggleButton.disabled = false;
+        return;
+      }
     }
+    refreshMicrophones();
     try {
       const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(
         (candidate) => MediaRecorder.isTypeSupported(candidate),

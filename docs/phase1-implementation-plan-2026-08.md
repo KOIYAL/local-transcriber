@@ -47,6 +47,8 @@
 | C10 | アプリ画面からの書き出し先設定: preload+IPCで設定セクション（トレイと同じsettings.jsonを共有） | desktop/preload.js, desktop/main.js, app/static/settings.js, index.html |
 | C11 | モデルの手動アップグレード: 自動切替はせず「更新を確認」ボタン→推奨モデルが上位なら確認→ダウンロード→切替（GET /api/models/upgrade-check・POST /api/models/upgrade） | app/model_manager.py, app/main.py, settings.js, tests/ |
 
+C9〜C11は2026-08-03に**完了**（テスト59本通過・Playwrightスモークでマイク選択/設定セクション/「すでに最適」トースト確認済み。実機確認はC7に合流）。
+
 ## 進捗
 
 | コミット | 状態 |

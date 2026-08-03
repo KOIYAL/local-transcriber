@@ -128,6 +128,24 @@
           </div>
           <p id="record-warning" class="record-warning" hidden></p>
         </div>
+
+        <div id="app-settings" class="app-settings">
+          <p class="settings-title" data-settings-i18n="settingsTitle">Settings</p>
+          <div id="export-row" class="settings-row">
+            <span data-settings-i18n="exportLabel">Export folder</span>
+            <span id="export-value" class="settings-value"></span>
+            <button id="export-change" class="secondary-button" type="button"
+              data-settings-i18n="exportChange">Change</button>
+            <button id="export-reset" class="secondary-button" type="button" hidden
+              data-settings-i18n="exportReset">Ask again</button>
+          </div>
+          <div class="settings-row">
+            <span data-settings-i18n="modelLabel">Transcription model</span>
+            <span id="model-value" class="settings-value"></span>
+            <button id="model-check" class="secondary-button" type="button"
+              data-settings-i18n="modelCheck">Check for a better model</button>
+          </div>
+        </div>
       </section>
 
       <section id="progress-panel" class="progress-panel" hidden aria-live="polite">
@@ -212,5 +230,6 @@
   <div id="toast" class="toast" role="status" hidden></div>
   <script src="/static/app.js" defer></script>
   <script src="/static/recorder.js" defer></script>
+  <script src="/static/settings.js" defer></script>
 </body>
 </html>

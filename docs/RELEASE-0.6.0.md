@@ -20,9 +20,16 @@
   誤選択の検知）。録音中にアプリを終了しようとすると確認ダイアログ
 - ウィンドウを閉じてもトレイに常駐し、録音は継続します
 - ログイン時の自動起動をトレイメニューから設定可能（既定はオフ）
-- 書き出し先フォルダの指定: トレイメニューでフォルダを選ぶと、TXT/SRT/
-  VTT/JSON/要約のダウンロードが毎回のダイアログなしでそこへ保存されます
-  （未設定なら従来どおり保存ダイアログ。同名ファイルは連番で回避）
+- 書き出し先フォルダの指定: トレイメニューまたはアプリ内の「設定」から
+  フォルダを選ぶと、TXT/SRT/VTT/JSON/要約のダウンロードが毎回の
+  ダイアログなしでそこへ保存されます（未設定なら従来どおり保存
+  ダイアログ。同名ファイルは連番で回避）
+- 録音に使うマイクの選択: 録音欄のドロップダウンで入力デバイスを指定
+  できます（選択は記憶され、外れていたら既定へ自動フォールバック）。
+  トレイに「OSのサウンド設定を開く」も追加
+- 文字起こしモデルの手動アップグレード: 設定の「より良いモデルを確認」
+  ボタンで、このPCに合う上位モデルがあるときだけ確認つきで切り替え
+  られます（自動では切り替えません）
 
 **その他**
 
@@ -44,9 +51,16 @@
   confirmation
 - Closing the window now minimizes to the tray; recording continues
 - Optional start-at-login toggle in the tray menu (off by default)
-- Configurable export folder: pick a folder from the tray menu and every
-  TXT/SRT/VTT/JSON/summary download saves there without a dialog (leave it
-  unset to keep the save dialog; name clashes get numbered suffixes)
+- Configurable export folder: pick a folder from the tray menu or the
+  in-app Settings and every TXT/SRT/VTT/JSON/summary download saves there
+  without a dialog (leave it unset to keep the save dialog; name clashes
+  get numbered suffixes)
+- Microphone picker: choose the input device right in the recorder (the
+  choice is remembered, with automatic fallback when the device is gone),
+  plus an "Open system sound settings" tray shortcut
+- Manual model upgrade: a "Check for a better model" button switches to a
+  larger Whisper model only when one fits this computer and you confirm —
+  never automatically
 
 **Also**
 
@@ -64,8 +78,13 @@
    - 一時停止/再開・録音破棄・無音警告（マイクをミュートして30秒）
    - ウィンドウを閉じる→トレイから再表示・録音中に終了→警告ダイアログ
    - トレイメニュー: 保存先フォルダ・直近ジョブ・自動起動チェックボックス
-   - 書き出し先フォルダ: トレイで設定→TXTダウンロードが無ダイアログで
-     そのフォルダへ入る・「毎回選ぶに戻す」でダイアログ復帰
+   - 書き出し先フォルダ: トレイまたはアプリ内設定で指定→TXTダウンロード
+     が無ダイアログでそのフォルダへ入る・「毎回選ぶに戻す」でダイアログ
+     復帰・トレイとアプリ内で設定が同期している
+   - マイク選択: 複数マイクがある場合にドロップダウンで切替→選んだ方で
+     録音される・USBマイクを抜いて録音開始→既定マイクにフォールバック
+   - モデル更新: 設定「より良いモデルを確認」→RAM相応なら「すでに最適」
+     トースト・上位がある場合は確認→ダウンロード進捗→完了後に文字起こし
 5. zipをGitHub Releasesへ（**リリース公開は人間承認**）
 
 ## macOS 側でやること

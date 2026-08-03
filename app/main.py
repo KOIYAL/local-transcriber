@@ -190,6 +190,22 @@ async def retry_setup(request: Request) -> dict:
     return manager.status()
 
 
+@app.get("/api/models/upgrade-check")
+async def models_upgrade_check(request: Request) -> dict:
+    return model_manager(request).upgrade_check()
+
+
+@app.post("/api/models/upgrade", status_code=202)
+async def models_upgrade(request: Request) -> dict:
+    try:
+        return model_manager(request).upgrade_to_recommended()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": str(exc), "message": "The model cannot be upgraded now."},
+        ) from exc
+
+
 @app.get("/api/jobs")
 async def list_jobs(request: Request) -> dict:
     jobs = job_manager(request).list_recent()

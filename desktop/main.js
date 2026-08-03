@@ -4,6 +4,7 @@ const {
   Menu,
   Tray,
   dialog,
+  ipcMain,
   nativeImage,
   shell,
 } = require("electron");
@@ -241,11 +242,22 @@ async function chooseExportDirectory() {
     defaultPath: settings.exportDirectory || app.getPath("downloads"),
     properties: ["openDirectory", "createDirectory"],
   });
-  if (result.canceled || !result.filePaths.length) return;
-  settings.exportDirectory = result.filePaths[0];
+  if (!result.canceled && result.filePaths.length) {
+    settings.exportDirectory = result.filePaths[0];
+    saveSettings();
+    rebuildTrayMenu();
+  }
+  return settings.exportDirectory;
+}
+
+ipcMain.handle("export-directory:get", () => settings.exportDirectory);
+ipcMain.handle("export-directory:choose", () => chooseExportDirectory());
+ipcMain.handle("export-directory:reset", () => {
+  settings.exportDirectory = null;
   saveSettings();
   rebuildTrayMenu();
-}
+  return null;
+});
 
 // With an export folder configured, downloads (TXT/SRT/VTT/JSON/SUMMARY)
 // save there silently; otherwise Electron's default save dialog appears.
@@ -443,6 +455,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 

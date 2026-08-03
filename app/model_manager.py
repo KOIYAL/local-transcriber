@@ -16,6 +16,9 @@ MODEL_DOWNLOAD_BYTES = {
     "medium": 1_500 * 1024**2,
 }
 
+# Quality order for manual upgrades ("better" = later in this list).
+MODEL_QUALITY_ORDER = ["tiny", "base", "small", "medium"]
+
 
 class ModelManager:
     def __init__(self, settings: Settings) -> None:
@@ -90,6 +93,51 @@ class ModelManager:
                 self._status = "failed"
                 self._message = "The model could not be prepared."
                 self._error = str(exc)
+
+    def upgrade_check(self) -> dict[str, Any]:
+        """Report whether a better model fits this computer.
+
+        The model is never switched automatically; this only informs the
+        manual "check for a better model" button.
+        """
+        recommended = select_model_for_memory(self.memory_bytes)
+        current = self.model_name
+        order = MODEL_QUALITY_ORDER
+        upgrade_available = (
+            current in order
+            and recommended in order
+            and order.index(recommended) > order.index(current)
+        )
+        return {
+            "current": current,
+            "recommended": recommended,
+            "upgrade_available": upgrade_available,
+        }
+
+    def upgrade_to_recommended(self) -> dict[str, Any]:
+        """Switch to the recommended model and start downloading it.
+
+        Raises ValueError when no upgrade applies or a download is running.
+        """
+        check = self.upgrade_check()
+        if not check["upgrade_available"]:
+            raise ValueError("no_upgrade_available")
+        with self._lock:
+            if self._status == "downloading":
+                raise ValueError("download_in_progress")
+            self.model_name = check["recommended"]
+            self.model_path = (
+                self.settings.model_dir / f"faster-whisper-{self.model_name}"
+            )
+            self._status = "ready" if self._is_ready() else "not_started"
+            self._message = (
+                "Transcription is ready."
+                if self._status == "ready"
+                else "Starting first-time setup."
+            )
+            self._error = None
+        self.start()
+        return self.status()
 
     def _downloaded_bytes(self) -> int:
         if not self.model_path or not self.model_path.exists():

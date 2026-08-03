@@ -845,3 +845,39 @@ footer p {
   font: inherit;
   font-size: 0.85rem;
 }
+.app-settings {
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+.settings-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+}
+.settings-row > span:first-child {
+  font-weight: 600;
+  min-width: 9rem;
+}
+.settings-value {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 8rem;
+}
+.settings-row .secondary-button {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}

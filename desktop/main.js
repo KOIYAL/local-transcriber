@@ -412,6 +412,9 @@ function rebuildTrayMenu() {
 }
 
 function applyTrayState(nextState, elapsedSeconds) {
+  const stateChanged = nextState !== trayState;
+  // Quit protection must keep working even without a usable Linux tray.
+  trayState = nextState;
   if (!tray) return;
   let tooltip = `Local Transcriber — ${stateLabel(nextState)}`;
   if (nextState === "recording" || nextState === "paused") {
@@ -421,8 +424,7 @@ function applyTrayState(nextState, elapsedSeconds) {
   const jobKey = latestJob ? `${latestJob.id}:${latestJob.status}` : "";
   const jobChanged = jobKey !== latestJobKey;
   latestJobKey = jobKey;
-  if (nextState !== trayState) {
-    trayState = nextState;
+  if (stateChanged) {
     tray.setImage(trayIconFor(nextState));
     rebuildTrayMenu();
   } else if (jobChanged) {
@@ -475,12 +477,19 @@ async function pollBackendState() {
 }
 
 function createTray() {
-  tray = new Tray(trayIconFor("idle"));
-  tray.setToolTip("Local Transcriber");
-  rebuildTrayMenu();
-  tray.on("click", () => {
-    if (process.platform !== "darwin") showMainWindow();
-  });
+  try {
+    tray = new Tray(trayIconFor("idle"));
+    tray.setToolTip("Local Transcriber");
+    rebuildTrayMenu();
+    tray.on("click", () => {
+      if (process.platform !== "darwin") showMainWindow();
+    });
+  } catch (error) {
+    if (process.platform !== "linux") throw error;
+    tray?.destroy();
+    tray = null;
+    // Some desktops have no tray host; the window remains fully usable.
+  }
   trayTimer = setInterval(pollBackendState, 1000);
 }
 
@@ -525,10 +534,15 @@ function createWindow() {
     if (!allowed) event.preventDefault();
   });
   mainWindow.once("ready-to-show", () => mainWindow.show());
-  // Closing the window hides it to the tray; the renderer (and any active
-  // recording) keeps running. Quitting goes through the tray menu or Cmd+Q.
+  // Electron cannot confirm whether a Linux tray is actually visible.
+  // Always quit on close there, retaining the renderer until quit is confirmed.
+  // Windows/macOS retain their existing hide-to-tray behavior.
   mainWindow.on("close", (event) => {
-    if (!isQuitting && tray) {
+    if (isQuitting) return;
+    if (process.platform === "linux") {
+      event.preventDefault();
+      app.quit();
+    } else if (tray) {
       event.preventDefault();
       mainWindow.hide();
     }

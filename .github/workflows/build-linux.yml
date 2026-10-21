@@ -1,0 +1,42 @@
+name: Build Linux app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run offline tests and syntax checks
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check -e ".[dev]"
+          .venv/bin/python -m pytest -q
+          node --test tests/*.test.cjs
+          for file in desktop/*.js app/static/*.js; do node --check "$file"; done
+          bash -n build-linux.sh
+
+      - name: Build the Linux archive
+        run: ./build-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalTranscriber-linux-x64
+          path: dist/LocalTranscriber-*-linux-x64.tar.gz
+          if-no-files-found: error

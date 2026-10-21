@@ -1,0 +1,52 @@
+Local Transcriber for Linux x64
+
+日本語
+1. tar.gz をフォルダごと展開します。実行ファイルだけを移動しないでください。
+2. 展開した LocalTranscriber-linux-x64 フォルダ内で、通常のユーザーとして
+   ./LocalTranscriber を実行します。Python、Node.js、ffmpeg の追加は不要です。
+3. 初回は音声認識モデルをダウンロードします。準備後はオフラインで使えます。
+4. 音声・動画を選ぶか、マイク録音を開始してください。
+
+対象は Ubuntu 22.04 以降の x86_64 デスクトップ環境です。
+新しい OS で自分でビルドしたものは、その OS 以降で確認してください。
+ARM64、Alpine Linux、画面のないサーバーは対象外です。
+GTK 3、NSS、ALSA など Electron の実行に必要な OS ライブラリが必要です。
+トレイには libayatana-appindicator3（Ubuntu のパッケージ名は
+libayatana-appindicator3-1）とデスクトップ側の AppIndicator 対応が必要です。
+GNOME では拡張機能が必要な場合があります。トレイがなくても利用できます。
+
+Linux ではトレイの有無にかかわらず、ウィンドウを閉じると終了します。
+録音中・一時停止中は終了前に確認します。録音や文字起こしを続けるときは
+ウィンドウを最小化してください。PC の再生音声の録音と自動起動は対象外です。
+サンドボックスに関する起動エラーは OS の設定を確認してください。
+root での起動や --no-sandbox による回避はしないでください。
+
+要約は任意です。公式 modelshelf v0.2.0 は glibc 2.39 が必要なため、
+Ubuntu 22.04 の CI ビルドには同梱せず、通常は要約 UI を表示しません。
+同梱の有無は末尾の Bundled modelshelf を確認してください。
+話者分離はメモリ 8 GiB 以上で利用でき、初回に追加モデルを取得します。
+音声・文字起こし・要約は外部へ送信しません。
+新版の確認通信は LT_UPDATE_CHECK=off で止められます。
+
+English
+1. Extract the entire tar.gz archive; keep all files together.
+2. In LocalTranscriber-linux-x64, run ./LocalTranscriber as a normal user.
+   No separate Python, Node.js or ffmpeg installation is needed.
+3. Wait for the initial transcription model download, then select an audio/video
+   file or record your microphone. After setup, transcription works offline.
+
+Target: Ubuntu 22.04+ x86_64 desktop. Builds made on a newer distribution must
+be checked on that distribution or newer. ARM64, Alpine and headless servers
+are not supported. Electron needs OS libraries including GTK 3, NSS and ALSA.
+The tray needs libayatana-appindicator3 (Ubuntu: libayatana-appindicator3-1)
+and desktop AppIndicator support; GNOME may need an extension.
+The app remains usable without a tray. Closing the window always quits on Linux,
+with confirmation while recording or paused. Minimize to keep working.
+Computer-audio recording and start-at-login are not supported on Linux desktop.
+For sandbox startup errors, check OS policy; do not run as root or use --no-sandbox.
+
+Summaries are optional. Official modelshelf v0.2.0 needs glibc 2.39; it is omitted
+from Ubuntu 22.04 CI builds, where the summary UI is normally hidden. See the
+Bundled modelshelf value below. Speaker separation needs at least 8 GiB RAM and
+an initial model download. Audio, transcripts and summaries stay on your device.
+Set LT_UPDATE_CHECK=off to disable the optional release check.

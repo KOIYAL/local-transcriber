@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -39,7 +40,7 @@ if importlib.util.find_spec("llama_cpp") is not None:
 # vendored copy exists (app/llm_manager.py resolves it there).
 _modelshelf_name = "modelshelf.exe" if sys.platform == "win32" else "modelshelf"
 _vendored_modelshelf = root / "vendor" / _modelshelf_name
-if _vendored_modelshelf.exists():
+if _vendored_modelshelf.exists() and os.getenv("LT_BUNDLE_MODELSHELF", "1") != "0":
     binaries += [(str(_vendored_modelshelf), ".")]
 
 # macOS: the Apple Intelligence bridge (desktop/apple-intelligence-helper),

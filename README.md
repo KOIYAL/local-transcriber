@@ -3,6 +3,7 @@
 **Private, on-device transcription for Windows and macOS.** Drop in an audio
 or video file, get timestamped text — and a local-LLM summary — without
 uploading your audio or text. No account, no API key, no cloud.
+Linux x64 test builds can also be built locally or with GitHub Actions.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/KOIYAL)
@@ -59,6 +60,54 @@ uploading your audio or text. No account, no API key, no cloud.
 - **Desktop builds**: `build-windows.cmd` on Windows,
   `./build-macos.sh` on macOS — or let GitHub Actions build the signed
   macOS app in the cloud ([docs/CLOUD-MAC-BUILD.md](docs/CLOUD-MAC-BUILD.md)).
+
+## Linux (test builds)
+
+Target: Ubuntu 22.04+ x86_64 desktop. Run the **Build Linux app** GitHub Actions
+workflow manually and download the `LocalTranscriber-linux-x64` artifact, or
+build locally. This does not imply a Linux release has already been published.
+
+```bash
+tar -xzf LocalTranscriber-<version>-linux-x64.tar.gz
+cd LocalTranscriber-linux-x64
+./LocalTranscriber
+```
+
+Keep the entire directory together and run as a normal user. No separate Python,
+Node.js or ffmpeg installation is needed; OS libraries such as GTK 3, NSS and ALSA
+are still required.
+The tray needs `libayatana-appindicator3` (Ubuntu: `libayatana-appindicator3-1`)
+and desktop AppIndicator support; GNOME may need an extension. The app remains
+usable without a tray. **Closing the window always quits on Linux**, with a
+confirmation while recording or paused. Minimize the window to keep working.
+Microphone recording is supported; computer-audio recording and start-at-login
+are hidden. Do not run as root or bypass the sandbox with `--no-sandbox`.
+
+Summaries are optional. The official modelshelf v0.2.0 Linux binary requires
+glibc 2.39, so Ubuntu 22.04 CI builds omit it and normally hide the summary UI.
+Local builds bundle it only if it runs on the build host. Speaker separation
+needs at least 8 GiB RAM and a separate initial model download. The included
+`START_HERE_LINUX.txt` records the build host and whether modelshelf was bundled.
+ARM64, Alpine and headless servers are outside this build's scope.
+
+To build, use x86_64 Linux with Python 3.12 recommended (3.10+ required), venv,
+Node.js 22+, npm, curl, tar and a C/C++ compiler:
+
+```bash
+./build-linux.sh
+# Or select Python explicitly:
+PYTHON=/usr/bin/python3.12 ./build-linux.sh
+```
+
+The script installs `.[desktop,summary,diarize]` using the CPU wheel extra index,
+fetches a pinned, SHA-256-verified modelshelf asset, builds the PyInstaller
+backend and packages Electron. Output: `dist/LocalTranscriber-<version>-linux-x64.tar.gz`.
+The version comes from `desktop/package.json` (still 0.6.0 until release preparation).
+Build on Ubuntu 22.04 for the intended baseline; builds made on newer systems
+may require newer system libraries. Cross-compilation is not supported.
+The workflow runs on `ubuntu-22.04` for manual dispatch and `v*` tags, tests first,
+and uploads an artifact without publishing a release. See the
+[verification checklist (Japanese)](docs/linux-build-2026-10-21.md).
 
 ## Models and glossary
 

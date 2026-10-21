@@ -3,6 +3,7 @@
 > English README: [README.md](README.md)
 
 音声・動画ファイルを `faster-whisper` で文字起こしするWindows / macOSアプリです。
+Linux x64 向けのテストビルド手順も用意しています。
 推論は端末内で実行され、外部の文字起こしAPIやAPIキーは必要ありません。
 
 ## 主な機能
@@ -95,6 +96,38 @@ After the first setup, transcription can run offline.
 モデルはユーザーごとのアプリデータ領域に保存されます。アプリを更新しても、
 同じモデルを再ダウンロードする必要はありません。導入済みの Medium もそのまま使えます。
 32GB以上の端末では、設定のモデル確認ボタンから Turbo への更新を選べます。
+
+## Linuxアプリ（テストビルド）
+
+Ubuntu 22.04 以降の x86_64 デスクトップ向けです。GitHub Actions の
+`Build Linux app` を手動実行するか、下記の手順で自分でビルドします。
+CI の artifact 名は `LocalTranscriber-linux-x64` です。公開済みの
+Linux リリースがあることを前提にはしていません。
+
+```bash
+tar -xzf LocalTranscriber-<version>-linux-x64.tar.gz
+cd LocalTranscriber-linux-x64
+./LocalTranscriber
+```
+
+フォルダ全体を保ったまま通常ユーザーで起動します。Python、Node.js、ffmpeg の
+追加は不要です。GTK 3、NSS、ALSA など Electron の実行ライブラリは OS 側に必要です。
+トレイには `libayatana-appindicator3`（Ubuntu では `libayatana-appindicator3-1`）と
+デスクトップの AppIndicator 対応が必要で、GNOME では拡張機能が必要な場合があります。
+
+トレイが表示されなくても操作を続けられるよう、Linux では常にウィンドウを閉じると
+終了します。録音中・一時停止中は終了前に確認します。作業を続けるときは最小化してください。
+PC の再生音声の録音とログイン時の自動起動は対象外です。マイク録音は利用できます。
+root 起動や `--no-sandbox` は使わず、サンドボックスのエラーは OS の設定を確認してください。
+
+要約は任意です。公式 modelshelf v0.2.0 の Linux バイナリは glibc 2.39 が必要なため、
+Ubuntu 22.04 の CI では同梱を省き、通常は要約 UI を表示しません。
+手元の環境で実行できる場合だけ同梱します。話者分離はメモリ 8 GiB 以上で利用でき、
+初回に追加モデルを取得します。同梱案内 `START_HERE_LINUX.txt` の末尾に
+ビルド環境と modelshelf の同梱有無を記録します。
+
+ARM64・Alpine Linux・画面のないサーバーは対象外です。
+実機確認項目と対応範囲の理由は [Linuxビルドの確認項目](docs/linux-build-2026-10-21.md) にあります。
 
 ## 話者分離（試験的・任意）
 
@@ -453,6 +486,26 @@ export MAC_NOTARY_PROFILE="koiyal-notary"
 Mac App Store版はApp Sandbox、ファイルアクセス権限、同梱バックエンドの署名に
 追加対応が必要です。まずはDeveloper IDで署名・公証したDMGによる配布を推奨します。
 リリース時の確認項目は `MAC_RELEASE.md` を参照してください。
+
+## Linuxアプリをビルド
+
+x86_64 Linux 上で Python 3.12（3.10以上）、venv、Node.js 22以降、npm、curl、
+tar、C/C++ コンパイラを用意します。Ubuntu 22.04 をビルド基準にしており、新しい OS で
+作ったバイナリは古い OS では動かない場合があります。クロスビルドはしません。
+
+```bash
+./build-linux.sh
+# Python を選ぶ場合:
+PYTHON=/usr/bin/python3.12 ./build-linux.sh
+```
+
+`.venv` に `desktop,summary,diarize` を入れ、CPU 用 wheel の追加インデックスを使います。
+modelshelf は公式リリースの URL と SHA-256 を固定して取得し、実行できる場合に同梱します。
+PyInstaller でバックエンドを作り、Electron と案内をまとめて
+`dist/LocalTranscriber-<version>-linux-x64.tar.gz` を生成します。
+バージョンは `desktop/package.json` から読みます（T6 までは 0.6.0）。
+GitHub Actions は `workflow_dispatch` と `v*` タグで同じスクリプトを実行し、
+テストが通った後に artifact を保存します。GitHub Release への公開は行いません。
 
 ## API
 

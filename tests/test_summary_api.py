@@ -66,7 +66,7 @@ def wait_for_summary(client: TestClient, job_id: str) -> dict:
 
 
 def test_config_exposes_summary_feature_block() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         payload = client.get("/api/config").json()
         assert "summary" in payload
         assert isinstance(payload["summary"]["available"], bool)
@@ -74,7 +74,7 @@ def test_config_exposes_summary_feature_block() -> None:
 
 def test_summarize_full_flow_with_fakes(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.main.llama_available", lambda: True)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         model_file = tmp_path / "model.gguf"
         model_file.write_bytes(b"GGUF")
         app.state.summary_llm = FakeLlm(ready=True, model_path=model_file)
@@ -110,7 +110,7 @@ class FakeApple:
 
 
 def test_apple_engine_short_circuits_setup_and_summarizes(tmp_path) -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         app.state.apple_ai = FakeApple()
 
         # No download, no llama-cpp: the feature is ready immediately.
@@ -130,7 +130,7 @@ def test_apple_engine_short_circuits_setup_and_summarizes(tmp_path) -> None:
 
 def test_summarize_refusals(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.main.llama_available", lambda: True)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         # Unknown job.
         assert client.post("/api/jobs/missing/summarize").status_code == 404
 

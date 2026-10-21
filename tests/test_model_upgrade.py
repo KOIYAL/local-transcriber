@@ -24,7 +24,7 @@ class FakeManager:
 
 
 def test_upgrade_check_reports_available() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         app.state.models = FakeManager("small", "medium")
         payload = client.get("/api/models/upgrade-check").json()
         assert payload == {
@@ -35,7 +35,7 @@ def test_upgrade_check_reports_available() -> None:
 
 
 def test_upgrade_starts_download_when_available() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         manager = FakeManager("small", "medium")
         app.state.models = manager
         response = client.post("/api/models/upgrade")
@@ -45,7 +45,7 @@ def test_upgrade_starts_download_when_available() -> None:
 
 
 def test_upgrade_conflicts_when_already_best() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         app.state.models = FakeManager("medium", "medium")
         response = client.post("/api/models/upgrade")
         assert response.status_code == 409
@@ -81,3 +81,45 @@ def test_manager_upgrade_check_ordering(tmp_path) -> None:
     manager.model_name = "medium"
     check = manager.upgrade_check()
     assert check["upgrade_available"] is False
+
+
+def _install_fake_model(model_dir, name: str) -> None:
+    folder = model_dir / f"faster-whisper-{name}"
+    folder.mkdir(parents=True)
+    for filename in ("config.json", "model.bin", "tokenizer.json"):
+        (folder / filename).write_bytes(b"x")
+
+
+def test_installed_model_is_kept_and_upgrade_is_offered(tmp_path, monkeypatch) -> None:
+    from app import model_manager as mm
+    from app.config import Settings
+
+    settings = Settings(
+        data_dir=tmp_path,
+        upload_dir=tmp_path / "uploads",
+        output_dir=tmp_path / "outputs",
+        model_dir=tmp_path / "models",
+        max_upload_bytes=1024,
+        keep_uploads=False,
+        device="cpu",
+        compute_type="int8",
+        local_model=None,
+        max_workers=1,
+    )
+    monkeypatch.setattr(mm, "total_memory_bytes", lambda: 64 * 1024**3)  # -> medium
+    _install_fake_model(settings.model_dir, "tiny")
+
+    manager = mm.ModelManager(settings)
+    # The downloaded model wins at startup (no silent re-download) ...
+    assert manager.model_name == "tiny"
+    assert manager.status()["ready"] is True
+    # ... and the manual check now has something to offer.
+    assert manager.upgrade_check() == {
+        "current": "tiny",
+        "recommended": "medium",
+        "upgrade_available": True,
+    }
+
+    # Nothing installed: the recommendation is used directly.
+    fresh = Settings(**{**settings.__dict__, "model_dir": tmp_path / "empty"})
+    assert mm.ModelManager(fresh).model_name == "medium"

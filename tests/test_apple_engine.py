@@ -7,6 +7,7 @@ import json
 from app.apple_intelligence import (
     INSTRUCTIONS_CHUNK,
     INSTRUCTIONS_FINAL,
+    MAX_REDUCE_ROUNDS,
     AppleIntelligenceEngine,
     _split,
 )
@@ -91,6 +92,28 @@ def test_long_text_is_summarized_map_reduce_style() -> None:
     for args, payload in calls:
         if args == ["summarize"]:
             assert len(payload["text"]) <= 1024
+
+
+def test_reduce_terminates_when_the_model_does_not_condense() -> None:
+    calls: list = []
+
+    def handler(args, payload):
+        if args == ["check"]:
+            return available_check(context_size=900)  # 1024-char budget
+        if payload["instructions"] == INSTRUCTIONS_CHUNK:
+            # Pathological model: every "summary" is as long as its input.
+            return FakeCompleted(stdout=json.dumps({"summary": "- " + "x" * len(payload["text"])}))
+        return FakeCompleted(stdout=json.dumps({"summary": "最終要約"}))
+
+    engine = AppleIntelligenceEngine(helper="helper-fake", runner=make_runner(handler, calls))
+    assert engine.summarize("会議の記録。" * 2000) == "最終要約"
+    chunk_calls = [c for c in calls if c[0] == ["summarize"] and c[1]["instructions"] == INSTRUCTIONS_CHUNK]
+    # Bounded: the initial map pass plus at most MAX_REDUCE_ROUNDS reduce
+    # passes, each over a text no longer than the previous combined notes.
+    assert len(chunk_calls) < 12 * (MAX_REDUCE_ROUNDS + 1)
+    final = [c for c in calls if c[0] == ["summarize"] and c[1]["instructions"] == INSTRUCTIONS_FINAL]
+    assert len(final) == 1
+    assert len(final[0][1]["text"]) <= 1024
 
 
 def test_context_overflow_splits_and_retries() -> None:

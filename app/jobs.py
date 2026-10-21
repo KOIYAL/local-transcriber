@@ -36,7 +36,7 @@ class JobRecord:
     summary_status: str = "none"  # none | queued | running | completed | failed
     summary_error: str | None = None
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self, include_result: bool = True) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "id": self.id,
             "filename": self.original_filename,
@@ -48,12 +48,12 @@ class JobRecord:
             "options": self.options,
             "error": self.error,
         }
-        if self.result:
+        if self.result and include_result:
             payload["result"] = self.result
         if self.summary_status != "none":
             payload["summary"] = {
                 "status": self.summary_status,
-                "text": self.summary,
+                "text": self.summary if include_result else None,
                 "error": self.summary_error,
             }
         if self.exports:
@@ -62,6 +62,13 @@ class JobRecord:
                 for file_format in self.exports
             }
         return payload
+
+
+# Completed/failed jobs kept in memory (each holds its full transcript).
+# Older ones are forgotten; their files under data/outputs stay on disk.
+MAX_JOBS = 50
+
+ACTIVE_STATUSES = {"queued", "loading_model", "transcribing", "finalizing"}
 
 
 class JobManager:
@@ -95,8 +102,24 @@ class JobManager:
         )
         with self._lock:
             self._jobs[job.id] = job
+            self._prune_locked()
         self.executor.submit(self._run, job.id)
         return job
+
+    def _prune_locked(self) -> None:
+        """Forget the oldest finished jobs beyond MAX_JOBS (memory bound)."""
+        finished = [
+            job
+            for job in self._jobs.values()
+            if job.status not in ACTIVE_STATUSES
+            and job.summary_status not in {"queued", "running"}
+        ]
+        excess = len(self._jobs) - MAX_JOBS
+        if excess <= 0:
+            return
+        finished.sort(key=lambda job: job.created_at)
+        for job in finished[:excess]:
+            del self._jobs[job.id]
 
     def get(self, job_id: str) -> JobRecord | None:
         with self._lock:
@@ -110,15 +133,9 @@ class JobManager:
     def delete(self, job_id: str) -> bool:
         with self._lock:
             job = self._jobs.get(job_id)
-            active_statuses = {
-                "queued",
-                "loading_model",
-                "transcribing",
-                "finalizing",
-            }
             if (
                 not job
-                or job.status in active_statuses
+                or job.status in ACTIVE_STATUSES
                 or job.summary_status in {"queued", "running"}
             ):
                 return False
@@ -178,13 +195,17 @@ class JobManager:
                 stored_job.result = result
                 stored_job.exports = exports
             self._update(job_id, "completed", 1.0, "Transcription complete.")
+            # The source is deleted only after a successful run. On failure
+            # it stays in data/uploads: for an in-app recording it is the
+            # only copy of the meeting, and a transient error (GPU runtime,
+            # disk full) must not destroy it. DELETE /api/jobs/{id} or the
+            # user removes it.
+            if not self.settings.keep_uploads:
+                job.media_path.unlink(missing_ok=True)
         except Exception as exc:
             self._update(job_id, "failed", 1.0, "Transcription failed.")
             with self._lock:
                 self._jobs[job_id].error = str(exc)
-        finally:
-            if not self.settings.keep_uploads:
-                job.media_path.unlink(missing_ok=True)
 
     def submit_summary(
         self,

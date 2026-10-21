@@ -4,7 +4,7 @@ from app.main import app
 
 
 def test_health_and_config() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         assert client.get("/api/health").json() == {"status": "ok"}
         response = client.get("/api/config")
         assert response.status_code == 200
@@ -14,7 +14,7 @@ def test_health_and_config() -> None:
 
 
 def test_rejects_unsupported_extension() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         response = client.post(
             "/api/jobs",
             files={"file": ("sample.txt", b"not media", "text/plain")},

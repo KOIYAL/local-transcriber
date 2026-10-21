@@ -13,7 +13,7 @@ def _force_setup(ready: bool) -> None:
 
 
 def test_recording_start_requires_setup() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         _force_setup(False)
         response = client.post("/api/recording/start")
         assert response.status_code == 409
@@ -21,7 +21,7 @@ def test_recording_start_requires_setup() -> None:
 
 
 def test_recording_full_flow() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         _force_setup(True)
         submitted = {}
 
@@ -64,7 +64,7 @@ def test_recording_full_flow() -> None:
 
 
 def test_recording_double_start_conflicts_and_cancel_cleans_up() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         _force_setup(True)
         sid = client.post("/api/recording/start").json()["session_id"]
         response = client.post("/api/recording/start")

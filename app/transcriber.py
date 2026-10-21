@@ -37,7 +37,9 @@ class TranscriptionEngine:
         if force_cpu:
             compute_type = "int8"
         elif compute_type == "auto":
-            compute_type = "float16" if device == "cuda" else "int8"
+            # On CUDA let CTranslate2 pick: it falls back from float16 to
+            # float32 on GPUs without efficient FP16 instead of failing.
+            compute_type = "auto" if device == "cuda" else "int8"
         return device, compute_type
 
     def _model_source(self, model_name: str) -> tuple[str, bool]:
@@ -78,6 +80,10 @@ class TranscriptionEngine:
 
             source, local_only = self._model_source(model_name)
             self.settings.model_dir.mkdir(parents=True, exist_ok=True)
+            # One resident Whisper model at a time: after an upgrade the
+            # previous one would otherwise stay in (GPU) memory for good.
+            self._models.clear()
+            gc.collect()
             model = WhisperModel(
                 source,
                 device=device,
@@ -89,13 +95,19 @@ class TranscriptionEngine:
             return model, device
 
     @staticmethod
-    def _is_cuda_runtime_error(exc: RuntimeError) -> bool:
+    def _is_cuda_runtime_error(exc: Exception) -> bool:
+        """Errors that mean "this GPU/runtime cannot run the model", so
+        the CPU retry is worth it. Includes CTranslate2's rejection of a
+        compute type the device does not support."""
         message = str(exc).lower()
         markers = (
             "cuda",
             "cublas",
             "cudnn",
             "out of memory",
+            "compute type",
+            "float16",
+            "bfloat16",
         )
         return any(marker in message for marker in markers)
 
@@ -185,7 +197,7 @@ class TranscriptionEngine:
                     options,
                     progress,
                 )
-            except RuntimeError as exc:
+            except (RuntimeError, ValueError) as exc:
                 if (
                     self.settings.device != "auto"
                     or not self._is_cuda_runtime_error(exc)

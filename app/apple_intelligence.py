@@ -53,6 +53,11 @@ DEFAULT_CONTEXT_TOKENS = 4096
 RESPONSE_TOKENS = 600
 CHARS_PER_TOKEN = 2.0
 
+# Map-reduce safety valve: each reduce round should shrink the notes by a
+# large factor. If the model keeps padding instead, stop re-summarizing
+# and truncate, rather than loop forever on the single summary worker.
+MAX_REDUCE_ROUNDS = 4
+
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 _UNSET: Any = object()
@@ -145,12 +150,19 @@ class AppleIntelligenceEngine:
             ]
             combined = "\n".join(partials)
             # Reduce until the combined notes fit a final pass.
+            rounds = 0
             while len(combined) > chunk_chars:
-                partials = [
-                    self._summarize_once(part, INSTRUCTIONS_CHUNK, chunk_chars)
-                    for part in _split(combined, chunk_chars)
-                ]
-                combined = "\n".join(partials)
+                rounds += 1
+                before = len(combined)
+                if rounds <= MAX_REDUCE_ROUNDS:
+                    partials = [
+                        self._summarize_once(part, INSTRUCTIONS_CHUNK, chunk_chars)
+                        for part in _split(combined, chunk_chars)
+                    ]
+                    combined = "\n".join(partials)
+                if rounds > MAX_REDUCE_ROUNDS or len(combined) >= before:
+                    combined = combined[:chunk_chars]
+                    break
             return self._summarize_once(combined, INSTRUCTIONS_FINAL, chunk_chars)
 
     def _summarize_once(self, text: str, instructions: str, chunk_chars: int) -> str:

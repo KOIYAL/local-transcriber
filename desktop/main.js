@@ -15,6 +15,7 @@ const path = require("node:path");
 
 let mainWindow = null;
 let backendProcess = null;
+let backendSpawnError = null;
 let isQuitting = false;
 let backendUrl = null;
 let dataDirectory = null;
@@ -186,12 +187,14 @@ function normalizedEnvironment(overrides) {
 }
 
 async function waitForBackend(url) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (backendProcess?.exitCode !== null) {
+  // First launch on a slow disk (PyInstaller unpack, CUDA libraries,
+  // antivirus scan) can take well over 30 seconds: allow 90.
+  for (let attempt = 0; attempt < 360; attempt += 1) {
+    if (backendSpawnError || backendProcess?.exitCode !== null) {
       throw new Error(localizedMessage(
         "文字起こしエンジンを起動できませんでした。",
         "The transcription engine could not be started.",
-      ));
+      ) + (backendSpawnError ? ` (${backendSpawnError.message})` : ""));
     }
     try {
       const response = await fetch(`${url}/api/health`);
@@ -212,6 +215,7 @@ async function startBackend() {
   const url = `http://127.0.0.1:${port}`;
   const command = backendCommand(port);
   dataDirectory = path.join(app.getPath("userData"), "data");
+  backendSpawnError = null;
   backendProcess = spawn(command.executable, command.args, {
     cwd: command.cwd,
     windowsHide: true,
@@ -222,6 +226,12 @@ async function startBackend() {
       TRANSCRIBER_DATA_DIR: dataDirectory,
       WHISPER_MODEL_DIR: path.join(dataDirectory, "models"),
     }),
+  });
+  // A missing or non-executable backend is reported as an "error" event,
+  // not a thrown exception; unhandled it would crash the shell before the
+  // dialog below.
+  backendProcess.on("error", (error) => {
+    backendSpawnError = error;
   });
   await waitForBackend(url);
   backendUrl = url;
@@ -464,7 +474,16 @@ function createWindow() {
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("http://127.0.0.1:")) event.preventDefault();
+    // Only the backend's exact origin may load in this window (it has the
+    // preload bridge); a prefix check would let another local port or a
+    // `http://127.0.0.1:x@evil/` URL through.
+    let allowed = false;
+    try {
+      allowed = Boolean(backendUrl) && new URL(url).origin === new URL(backendUrl).origin;
+    } catch {
+      allowed = false;
+    }
+    if (!allowed) event.preventDefault();
   });
   mainWindow.once("ready-to-show", () => mainWindow.show());
   // Closing the window hides it to the tray; the renderer (and any active

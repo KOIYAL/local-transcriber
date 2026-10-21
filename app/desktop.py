@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import multiprocessing
+import os
 
 import uvicorn
 
@@ -20,6 +21,12 @@ def main() -> None:
         log_level="warning",
         access_log=False,
     )
+    # uvicorn returns after the shell's SIGTERM, but a transcription still
+    # running on the worker thread would keep the process alive (the
+    # executor's threads are joined at interpreter exit) with no window to
+    # show its result. The source file is kept in data/uploads for such an
+    # interrupted job, so ending the process here loses nothing.
+    os._exit(0)
 
 
 if __name__ == "__main__":

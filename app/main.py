@@ -5,6 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import (
     FastAPI,
@@ -14,7 +15,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import (
@@ -76,6 +77,62 @@ app.mount(
     StaticFiles(directory=PROJECT_ROOT / "app" / "static"),
     name="static",
 )
+
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# Slack for the multipart envelope around the media file itself.
+UPLOAD_ENVELOPE_BYTES = 1024 * 1024
+
+
+def _host_only(authority: str | None) -> str:
+    """`127.0.0.1:8000` -> `127.0.0.1`, `[::1]:8000` -> `[::1]`."""
+    if not authority:
+        return ""
+    value = authority.strip().lower()
+    if value.startswith("["):
+        return value.split("]", 1)[0] + "]"
+    return value.rsplit(":", 1)[0] if value.count(":") == 1 else value
+
+
+@app.middleware("http")
+async def local_only_guard(request: Request, call_next):
+    """Keep the API usable only by this computer's own pages.
+
+    Binding to 127.0.0.1 stops remote hosts, but not a web page the user
+    happens to have open: DNS rebinding (a hostname that resolves to
+    127.0.0.1) and plain cross-site requests would otherwise reach a
+    fixed-port backend. So: the Host header must be a loopback name, and a
+    state-changing request that carries an Origin must come from exactly
+    the host the page was served from. Clients without an Origin header
+    (the Electron shell's own fetches send one; curl and tests do not) are
+    local by construction.
+    """
+    host = request.headers.get("host")
+    if _host_only(host) not in LOOPBACK_HOSTS:
+        return JSONResponse(status_code=421, content={"detail": error_detail("bad_host")})
+    if request.method not in SAFE_METHODS:
+        origin = request.headers.get("origin")
+        if origin and origin != "null":
+            if urlsplit(origin).netloc.lower() != (host or "").strip().lower():
+                return JSONResponse(
+                    status_code=403, content={"detail": error_detail("bad_origin")}
+                )
+        # Reject oversized uploads before Starlette spools the multipart
+        # body to a temp file; the per-chunk check in create_job remains
+        # the backstop for requests without a Content-Length.
+        if request.url.path == "/api/jobs" and request.method == "POST":
+            length = request.headers.get("content-length", "")
+            if length.isdigit() and int(length) > SETTINGS.max_upload_bytes + UPLOAD_ENVELOPE_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": error_detail(
+                            "file_too_large",
+                            size=SETTINGS.max_upload_bytes // (1024 * 1024),
+                        )
+                    },
+                )
+    return await call_next(request)
 
 
 def job_manager(request: Request) -> JobManager:
@@ -208,8 +265,10 @@ async def models_upgrade(request: Request) -> dict:
 
 @app.get("/api/jobs")
 async def list_jobs(request: Request) -> dict:
+    # Summaries only: the tray polls this every second, and a completed
+    # job's full transcript belongs in GET /api/jobs/{id}.
     jobs = job_manager(request).list_recent()
-    return {"jobs": [job.as_dict() for job in jobs]}
+    return {"jobs": [job.as_dict(include_result=False) for job in jobs]}
 
 
 @app.post("/api/jobs", status_code=202)

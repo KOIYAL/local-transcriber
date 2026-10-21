@@ -24,16 +24,15 @@ class ModelManager:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.memory_bytes = total_memory_bytes()
-        self.model_name = (
-            "local"
-            if settings.local_model
-            else select_model_for_memory(self.memory_bytes)
-        )
-        self.model_path = (
-            settings.local_model
-            if settings.local_model
-            else settings.model_dir / f"faster-whisper-{self.model_name}"
-        )
+        if settings.local_model:
+            self.model_name = "local"
+            self.model_path = settings.local_model
+        else:
+            # Prefer a model that is already on disk over the recommended
+            # one: switching is the user's call (upgrade_to_recommended),
+            # never a silent multi-hundred-MB download at startup.
+            self.model_name = self._installed_or(select_model_for_memory(self.memory_bytes))
+            self.model_path = settings.model_dir / f"faster-whisper-{self.model_name}"
         self._status = "ready" if self._is_ready() else "not_started"
         self._message = (
             "Transcription is ready."
@@ -44,13 +43,25 @@ class ModelManager:
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
-    def _is_ready(self) -> bool:
-        if not self.model_path:
+    @staticmethod
+    def _is_ready_at(path: Path | None) -> bool:
+        if not path:
             return False
         required = ("config.json", "model.bin", "tokenizer.json")
-        return self.model_path.is_dir() and all(
-            (self.model_path / filename).exists() for filename in required
-        )
+        return path.is_dir() and all((path / filename).exists() for filename in required)
+
+    def _is_ready(self) -> bool:
+        return self._is_ready_at(self.model_path)
+
+    def _installed_or(self, recommended: str) -> str:
+        """The recommended preset if it is downloaded, else the best
+        downloaded preset, else the recommended one (to be downloaded)."""
+        if self._is_ready_at(self.settings.model_dir / f"faster-whisper-{recommended}"):
+            return recommended
+        for name in reversed(MODEL_QUALITY_ORDER):
+            if self._is_ready_at(self.settings.model_dir / f"faster-whisper-{name}"):
+                return name
+        return recommended
 
     def start(self) -> None:
         with self._lock:
@@ -97,8 +108,10 @@ class ModelManager:
     def upgrade_check(self) -> dict[str, Any]:
         """Report whether a better model fits this computer.
 
-        The model is never switched automatically; this only informs the
-        manual "check for a better model" button.
+        `current` is the model actually in use (an installed one is kept
+        across launches, see `_installed_or`); the model is never switched
+        automatically, this only informs the manual "check for a better
+        model" button.
         """
         recommended = select_model_for_memory(self.memory_bytes)
         current = self.model_name

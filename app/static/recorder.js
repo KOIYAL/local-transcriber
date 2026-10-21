@@ -24,6 +24,10 @@ const RECORDER_STRINGS = {
       "Microphone access was denied. Allow microphone use for this app and try again.",
     recorderUnsupported: "Recording is not supported in this environment.",
     recordFailed: "Recording failed.",
+    uploadFailedWarning:
+      "Saving audio to the engine failed. What was recorded so far is kept; stop the recording to transcribe it.",
+    recordPartial: "Only the part recorded before the saving error will be transcribed.",
+    recordRecovered: "An interrupted recording was found and is being transcribed.",
     micLabel: "Microphone",
     micDefault: "System default microphone",
   },
@@ -45,6 +49,10 @@ const RECORDER_STRINGS = {
       "マイクの使用が許可されませんでした。このアプリのマイク利用を許可して、もう一度お試しください。",
     recorderUnsupported: "この環境では録音を利用できません。",
     recordFailed: "録音に失敗しました。",
+    uploadFailedWarning:
+      "音声の保存に失敗しました。ここまでの録音は残っています。停止すると文字起こしします。",
+    recordPartial: "保存エラーより前に録音した部分だけを文字起こしします。",
+    recordRecovered: "中断された録音が見つかったので、文字起こしを始めます。",
     micLabel: "マイク",
     micDefault: "システム既定のマイク",
   },
@@ -206,29 +214,65 @@ if (recorderRoot) {
     }
   };
 
+  // Free the backend's single recording slot; harmless when it is already
+  // gone (404). Never throws.
+  const releaseSession = async (targetSession) => {
+    if (!targetSession) return;
+    try {
+      await fetch(`/api/recording/${targetSession}`, { method: "DELETE" });
+    } catch {
+      // Backend unreachable: nothing more to clean up from here.
+    }
+  };
+
+  const CHUNK_ATTEMPTS = 3;
+
+  // POST one chunk, retrying transient failures (network blip, 5xx). A 4xx
+  // is final: the session is gone or the recording hit its size limit.
+  const postChunk = async (targetSession, blob, level) => {
+    let lastError = null;
+    for (let attempt = 0; attempt < CHUNK_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await fetch(`/api/recording/${targetSession}/chunk`, {
+          method: "POST",
+          headers: { "X-Audio-Level": level.toFixed(4) },
+          body: blob,
+        });
+        if (response.ok) return response.json();
+        lastError = new Error(await readErrorCode(response));
+        if (response.status < 500) break;
+      } catch (error) {
+        lastError = error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+    throw lastError || new Error("upload_failed");
+  };
+
   const uploadChunk = (blob) => {
-    if (!sessionId || discarding) return;
+    if (!sessionId || discarding || uploadFailed) return;
     const targetSession = sessionId;
     const level = currentLevel;
+    // The chain never rejects: a failure is recorded in uploadFailed and
+    // surfaced right away, while the meeting is still running.
     uploadChain = uploadChain.then(async () => {
       if (discarding || uploadFailed) return;
-      const response = await fetch(`/api/recording/${targetSession}/chunk`, {
-        method: "POST",
-        headers: { "X-Audio-Level": level.toFixed(4) },
-        body: blob,
-      });
-      if (!response.ok) {
+      try {
+        const status = await postChunk(targetSession, blob, level);
+        if (status.silence_warning && !silenceWarned) {
+          silenceWarned = true;
+          warningLabel.textContent = rt("silenceWarning");
+          warningLabel.hidden = false;
+        } else if (!status.silence_warning && silenceWarned) {
+          silenceWarned = false;
+          warningLabel.hidden = true;
+        }
+      } catch {
+        // Later chunks would not decode without this one, so stop sending;
+        // the backend keeps a valid prefix of the recording.
         uploadFailed = true;
-        return;
-      }
-      const status = await response.json();
-      if (status.silence_warning && !silenceWarned) {
-        silenceWarned = true;
-        warningLabel.textContent = rt("silenceWarning");
+        warningLabel.textContent = rt("uploadFailedWarning");
         warningLabel.hidden = false;
-      } else if (!status.silence_warning && silenceWarned) {
-        silenceWarned = false;
-        warningLabel.hidden = true;
       }
     });
   };
@@ -298,6 +342,10 @@ if (recorderRoot) {
       meterTimer = window.setInterval(measureLevel, 200);
       syncControls();
     } catch (error) {
+      // The backend session was opened before the local recorder failed
+      // (AudioContext / MediaRecorder); release it or every later start
+      // would be refused with recording_in_progress.
+      await releaseSession(sessionId);
       mediaStream?.getTracks().forEach((track) => track.stop());
       resetLocalState();
       window.LT?.showToast(rt("recordFailed"));
@@ -308,29 +356,64 @@ if (recorderRoot) {
 
   const stopRecording = async () => {
     if (!mediaRecorder || !sessionId) return;
+    const targetSession = sessionId;
     state = "stopping";
     syncControls();
     toggleButton.disabled = true;
-    const stopped = new Promise((resolve) => {
-      mediaRecorder.addEventListener("stop", resolve, { once: true });
-    });
-    mediaRecorder.stop();
-    await stopped;
+    if (mediaRecorder.state !== "inactive") {
+      const stopped = new Promise((resolve) => {
+        mediaRecorder.addEventListener("stop", resolve, { once: true });
+      });
+      try {
+        mediaRecorder.stop();
+        await stopped;
+      } catch {
+        // Already inactive: the chunks that exist are all we will get.
+      }
+    }
     await uploadChain;
+    const partial = uploadFailed;
     try {
-      if (uploadFailed) throw new Error("upload_failed");
-      const response = await fetch(`/api/recording/${sessionId}/stop`, {
+      // Even after an upload failure the backend holds a valid prefix of
+      // the meeting; transcribing that beats throwing the recording away.
+      const response = await fetch(`/api/recording/${targetSession}/stop`, {
         method: "POST",
       });
       if (!response.ok) throw new Error(await readErrorCode(response));
       const job = await response.json();
       resetLocalState();
+      if (partial) window.LT?.showToast(rt("recordPartial"));
       await window.LT?.trackJob(job);
     } catch {
+      // stop failed (empty recording, backend error): make sure the slot
+      // is free before giving up, otherwise the next start is refused.
+      await releaseSession(targetSession);
       window.LT?.showToast(rt("recordFailed"));
       resetLocalState();
     } finally {
       toggleButton.disabled = false;
+    }
+  };
+
+  // A session can outlive this page: a reload or renderer crash leaves it
+  // open on the backend with its chunks safely on disk. Finish it (that is
+  // what the chunking was for) instead of leaving it to block new ones.
+  const recoverOrphanSession = async () => {
+    try {
+      const status = await (await fetch("/api/recording/status")).json();
+      if (!status.session_id || status.state === "idle") return;
+      const response = await fetch(`/api/recording/${status.session_id}/stop`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        await releaseSession(status.session_id);
+        return;
+      }
+      const job = await response.json();
+      window.LT?.showToast(rt("recordRecovered"));
+      await window.LT?.trackJob(job);
+    } catch {
+      // Backend not reachable yet; a later start reports any conflict.
     }
   };
 
@@ -377,4 +460,5 @@ if (recorderRoot) {
   });
 
   localize();
+  recoverOrphanSession();
 }

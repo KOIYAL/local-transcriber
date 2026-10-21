@@ -28,7 +28,7 @@ if errorlevel 1 exit /b 1
 
 echo [3/5] Installing Electron and winapp CLI...
 pushd desktop
-call npm.cmd install
+call npm.cmd ci
 if errorlevel 1 (
     popd
     exit /b 1

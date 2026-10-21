@@ -9,6 +9,28 @@ set "OUTPUT=dist\KOIYAL-Transcriber-Store.msix"
 set "LOGO=assets\app-icon.png"
 set "TILE_ASSET_DIR=assets\msix"
 
+if not defined STORE_IDENTITY_NAME (
+    echo ERROR: STORE_IDENTITY_NAME is required.
+    echo Copy Package/Identity/Name from Partner Center ^> Product identity.
+    exit /b 1
+)
+
+if not defined STORE_PUBLISHER (
+    echo ERROR: STORE_PUBLISHER is required.
+    echo Copy Package/Identity/Publisher from Partner Center ^> Product identity.
+    exit /b 1
+)
+
+if not exist ".venv\Scripts\python.exe" (
+    echo ERROR: Python environment is missing. Run build-windows.cmd first.
+    exit /b 1
+)
+
+if not exist "desktop\node_modules\.bin\winapp.cmd" (
+    echo ERROR: winapp CLI is missing. Run npm ci in desktop on Windows.
+    exit /b 1
+)
+
 if not exist "%EXECUTABLE%" (
     echo Build the desktop app first by running build-windows.cmd.
     exit /b 1
@@ -39,27 +61,15 @@ if not exist "%PACKAGE_DIR%\Assets" mkdir "%PACKAGE_DIR%\Assets"
 xcopy /E /I /Y "%TILE_ASSET_DIR%\*" "%PACKAGE_DIR%\Assets\" >nul
 if errorlevel 1 exit /b 1
 
-if "%STORE_IDENTITY_NAME%"=="" (
-    echo ERROR: STORE_IDENTITY_NAME is required.
-    echo Copy Package/Identity/Name from Partner Center ^> Product identity.
-    exit /b 1
-)
-
-if "%STORE_PUBLISHER%"=="" (
-    echo ERROR: STORE_PUBLISHER is required.
-    echo Copy Package/Identity/Publisher from Partner Center ^> Product identity.
-    exit /b 1
-)
-
 ".venv\Scripts\python.exe" desktop\prepare_store_manifest.py "%MANIFEST%"
 if errorlevel 1 exit /b 1
 
 if "%SIGNING_CERT%"=="" (
     echo Creating an unsigned Microsoft Store MSIX package.
-    call desktop\node_modules\.bin\winapp.cmd package "%PACKAGE_DIR%" --output "%OUTPUT%"
+    call desktop\node_modules\.bin\winapp.cmd package "%PACKAGE_DIR%" --output "%OUTPUT%" --executable "LocalTranscriber.exe"
 ) else (
     echo Creating a signed MSIX package.
-    call desktop\node_modules\.bin\winapp.cmd package "%PACKAGE_DIR%" --output "%OUTPUT%" --cert "%SIGNING_CERT%"
+    call desktop\node_modules\.bin\winapp.cmd package "%PACKAGE_DIR%" --output "%OUTPUT%" --executable "LocalTranscriber.exe" --cert "%SIGNING_CERT%"
 )
 if errorlevel 1 exit /b 1
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -58,6 +59,19 @@ def child(parent: ET.Element, tag: str) -> ET.Element:
     if element is None:
         raise ValueError(f"Manifest element not found: {tag}")
     return element
+
+
+def store_package_version() -> str:
+    version = os.getenv("STORE_PACKAGE_VERSION", "1.0.2.0").strip()
+    if not re.fullmatch(r"[0-9]{1,5}(\.[0-9]{1,5}){3}", version):
+        raise ValueError("STORE_PACKAGE_VERSION must contain four numeric components.")
+    major, minor, build, revision = map(int, version.split("."))
+    if not (1 <= major <= 65535 and minor <= 65535 and build <= 65535 and revision == 0):
+        raise ValueError(
+            "STORE_PACKAGE_VERSION requires major 1..65535, minor/build 0..65535, "
+            "and revision 0 for Microsoft Store submission."
+        )
+    return version
 
 
 def child_or_create(parent: ET.Element, tag: str) -> ET.Element:
@@ -118,7 +132,7 @@ def main() -> int:
         "STORE_DESCRIPTION",
         "音声・動画ファイルをPC上で文字起こしする買い切り型Windowsアプリ",
     ).strip()
-    version = os.getenv("STORE_PACKAGE_VERSION", "1.0.2.0").strip()
+    version = store_package_version()
 
     tree = ET.parse(manifest_path)
     root = tree.getroot()

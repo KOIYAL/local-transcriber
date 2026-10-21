@@ -434,6 +434,13 @@ $env:SIGNING_CERT = "C:\certificates\publisher.pfx"
 Store申請用の入力例と`runFullTrust`の説明文は
 `STORE_SUBMISSION.md`を参照してください。
 
+GitHub Actions の `Build Windows app` でも未署名MSIXを作れます。
+リポジトリ変数 `STORE_IDENTITY_NAME`、`STORE_PUBLISHER`、`STORE_PACKAGE_VERSION` を
+設定すると、`LocalTranscriber-msix` artifact に保存します。未設定ならMSIXだけを
+スキップし、ポータブルZIPは作成します。Storeへの申請・公開は人が行います。
+アプリのバージョンとStore用の4桁の番号は別です。設定方法と実機確認項目は
+[Store申請メモ](STORE_SUBMISSION.md)を参照してください。
+
 ## Macアプリをビルド
 
 Mac版はmacOS上でビルドします。Xcode Command Line Tools、Python 3.10以上、

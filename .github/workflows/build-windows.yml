@@ -2,13 +2,16 @@ name: Build Windows app
 
 # Cloud Windows build (no local Windows checkout needed): creates the venv,
 # fetches the public modelshelf.exe, then runs build-windows.cmd to produce
-# the portable zip. The zip is uploaded as a workflow artifact — it is NOT
-# published to Releases automatically.
+# the portable zip and, when Store identity variables are configured, an
+# unsigned MSIX. Artifacts are not published to Releases or the Store.
 
 on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -44,4 +47,43 @@ jobs:
         with:
           name: LocalTranscriber-win-x64
           path: dist/LocalTranscriber-*-win-x64.zip
+          if-no-files-found: error
+
+      - name: Check Store package configuration
+        id: store
+        shell: pwsh
+        env:
+          STORE_IDENTITY_NAME: ${{ vars.STORE_IDENTITY_NAME }}
+          STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+          STORE_PACKAGE_VERSION: ${{ vars.STORE_PACKAGE_VERSION }}
+        run: |
+          $required = 'STORE_IDENTITY_NAME', 'STORE_PUBLISHER', 'STORE_PACKAGE_VERSION'
+          $missing = @($required | Where-Object {
+            [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_))
+          })
+          if ($missing.Count -gt 0) {
+            $message = 'MSIX skipped: configure repository variables ' + ($missing -join ', ') + '. See STORE_SUBMISSION.md.'
+            Write-Output "::notice::$message"
+            $message >> $env:GITHUB_STEP_SUMMARY
+            'enabled=false' >> $env:GITHUB_OUTPUT
+          } else {
+            'enabled=true' >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build unsigned Store MSIX
+        if: steps.store.outputs.enabled == 'true'
+        shell: cmd
+        env:
+          STORE_IDENTITY_NAME: ${{ vars.STORE_IDENTITY_NAME }}
+          STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+          STORE_PACKAGE_VERSION: ${{ vars.STORE_PACKAGE_VERSION }}
+          SIGNING_CERT: ""
+        run: package-msix.cmd
+
+      - name: Upload Store MSIX
+        if: steps.store.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalTranscriber-msix
+          path: dist/KOIYAL-Transcriber-Store.msix
           if-no-files-found: error

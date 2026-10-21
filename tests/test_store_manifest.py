@@ -5,6 +5,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULE_PATH = ROOT / "desktop" / "prepare_store_manifest.py"
@@ -50,11 +52,17 @@ def test_prepare_store_manifest_uses_custom_tile_assets(
 
     monkeypatch.setenv("STORE_IDENTITY_NAME", "StoreIdentity")
     monkeypatch.setenv("STORE_PUBLISHER", "CN=KOIYAL")
+    monkeypatch.setenv("STORE_PACKAGE_VERSION", "1.0.3.0")
     monkeypatch.setattr(sys, "argv", ["prepare_store_manifest.py", str(manifest_path)])
 
     assert store_manifest.main() == 0
 
     root = ET.parse(manifest_path).getroot()
+    identity = root.find(f"{{{store_manifest.FOUNDATION}}}Identity")
+    assert identity is not None
+    assert identity.get("Name") == "StoreIdentity"
+    assert identity.get("Publisher") == "CN=KOIYAL"
+    assert identity.get("Version") == "1.0.3.0"
     properties = root.find(f"{{{store_manifest.FOUNDATION}}}Properties")
     visual_elements = root.find(
         f"{{{store_manifest.FOUNDATION}}}Applications/"
@@ -79,3 +87,24 @@ def test_prepare_store_manifest_uses_custom_tile_assets(
     assert default_tile.get("Wide310x150Logo") == store_manifest.TILE_ASSETS["wide310"]
     assert splash_screen.get("Image") == store_manifest.TILE_ASSETS["splash"]
     assert list(visual_elements).index(default_tile) < list(visual_elements).index(splash_screen)
+
+
+@pytest.mark.parametrize("version", ["1.0.3.0", "65535.65535.65535.0"])
+def test_store_version_accepts_submission_versions(monkeypatch, version):
+    monkeypatch.setenv("STORE_PACKAGE_VERSION", version)
+    assert store_manifest.store_package_version() == version
+
+
+@pytest.mark.parametrize("version", [
+    "", "0.7.0", "v1.0.3.0", "0.7.0.0", "1.0.3.1", "65536.0.0.0",
+    "1.65536.0.0", "1.0.65536.0", "1.-1.0.0", "1.0.3.0.extra",
+])
+def test_store_version_rejects_invalid_submission_versions(monkeypatch, version):
+    monkeypatch.setenv("STORE_PACKAGE_VERSION", version)
+    with pytest.raises(ValueError, match="STORE_PACKAGE_VERSION"):
+        store_manifest.store_package_version()
+
+
+def test_local_store_version_default_is_preserved(monkeypatch):
+    monkeypatch.delenv("STORE_PACKAGE_VERSION", raising=False)
+    assert store_manifest.store_package_version() == "1.0.2.0"

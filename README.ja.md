@@ -254,7 +254,7 @@ $ python -m uvicorn app.main:app --port 8000
 `.env.example` に設定例があります。現状は `.env` の自動読み込みを行わないため、
 PowerShellやOSの環境変数として設定してください。
 
-| 変数 | 既定値 | 説明 |
+| 変数 | デフォルト | 説明 |
 | --- | --- | --- |
 | `MAX_UPLOAD_MB` | `2048` | 1ファイルの最大サイズ |
 | `WHISPER_DEVICE` | `auto` | `auto` / `cpu` / `cuda` |

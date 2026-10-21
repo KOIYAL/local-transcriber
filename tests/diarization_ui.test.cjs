@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-function harness(initial = { available: true, ready: false, status: 'not_started' }) {
+function harness(initial = { available: true, ready: false, status: 'not_started' }, preferences = null) {
   const elements = new Map(), calls = [], timers = new Map();
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
@@ -20,6 +20,10 @@ function harness(initial = { available: true, ready: false, status: 'not_started
   }
   const window = { setTimeout(fn) { const id = Symbol(); timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); } };
+  window.localStorage = { getItem() { return null; }, setItem() {} };
+  if (preferences) window.localTranscriber = { settings: {
+    get: key => preferences.get(key) ?? null, set: (key, value) => preferences.set(key, value),
+  } };
   let next = initial, fail = false, created = 0;
   const context = vm.createContext({
     window, navigator: { language: 'ja' },
@@ -39,6 +43,7 @@ function harness(initial = { available: true, ready: false, status: 'not_started
       return { ok: true, json: async () => data };
     },
   });
+  vm.runInContext(fs.readFileSync('app/static/preferences.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('app/static/app.js', 'utf8'), context);
   return { element, calls, timers, window,
     run(code) { return vm.runInContext(code, context); },
@@ -56,6 +61,21 @@ test('hidden when unavailable; no model requests on load, even with ready models
     assert.equal(h.window.LT.getDiarize(), false);
     assert.equal(h.calls.some(([url]) => url === '/api/diarize/setup'), false);
   }
+});
+
+test('glossary and locale restore and persist through the desktop bridge', () => {
+  const preferences = new Map([
+    ['local-transcriber-glossary', 'KOIYAL'], ['local-transcriber-locale', 'en'],
+  ]);
+  const h = harness(undefined, preferences);
+  assert.equal(h.window.LT.getGlossary(), 'KOIYAL');
+  assert.equal(h.window.LT.getLocale(), 'en');
+  h.element('#glossary').value = 'KOIYAL、人名';
+  h.element('#glossary').listeners.input();
+  h.run('applyLanguage("ja")');
+  const next = harness(undefined, preferences);
+  assert.equal(next.window.LT.getGlossary(), 'KOIYAL、人名');
+  assert.equal(next.window.LT.getLocale(), 'ja');
 });
 
 test('explicit setup polls progress, enables only after ready and supports switching off', async () => {

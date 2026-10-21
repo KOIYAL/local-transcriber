@@ -286,7 +286,7 @@ let toastTimer = null;
 
 function getInitialLocale() {
   try {
-    const stored = localStorage.getItem("local-transcriber-locale");
+    const stored = window.LTPreferences.get("local-transcriber-locale");
     if (stored === "ja" || stored === "en") return stored;
   } catch {
     // Use the operating system language when storage is unavailable.
@@ -324,7 +324,7 @@ function applyLanguage(locale, persist = true) {
   });
   if (persist) {
     try {
-      localStorage.setItem("local-transcriber-locale", currentLocale);
+      window.LTPreferences.set("local-transcriber-locale", currentLocale);
     } catch {
       // Language selection still works for this session.
     }
@@ -367,13 +367,13 @@ async function checkAppUpdate() {
 }
 
 try {
-  glossaryInput.value = (localStorage.getItem("local-transcriber-glossary") || "").slice(0, 500);
+  glossaryInput.value = (window.LTPreferences.get("local-transcriber-glossary") || "").slice(0, 500);
 } catch {
   // The glossary remains usable when persistent storage is unavailable.
 }
 glossaryInput.addEventListener("input", () => {
   try {
-    localStorage.setItem("local-transcriber-glossary", glossaryInput.value);
+    window.LTPreferences.set("local-transcriber-glossary", glossaryInput.value.slice(0, 500));
   } catch {
     // Keep the current session's value.
   }

@@ -1,8 +1,11 @@
 """All network, model decoding and native inference use small fakes."""
 import hashlib
 import io
+import multiprocessing
+import os
 import tarfile
 import threading
+import time
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -153,12 +156,62 @@ def test_native_adapter_and_decode_use_fakes(tmp_path):
         paths.append(path)
         return [0.25, -0.25]
 
-    manager, _ = fake_manager(tmp_path, engine_factory=factory, decoder=decode)
-    manager._provision()
     path = tmp_path / "meeting.wav"
-    assert manager.diarize(path, progress.append) == [{"start": 0.0, "end": 1.2, "speaker": 7}]
+    assert diarizer.infer_speakers(
+        path, (tmp_path / "segmentation.onnx", tmp_path / "embedding.onnx"),
+        progress.append, engine_factory=factory, decoder=decode,
+    ) == [{"start": 0.0, "end": 1.2, "speaker": 7}]
     assert paths == [path]
     assert progress == [0.5]
+
+
+def fake_process_worker(path, model_paths, progress):
+    assert [p.name for p in model_paths] == ["segmentation.onnx", "embedding.onnx"]
+    assert multiprocessing.get_start_method() == "spawn"
+    progress(0.25)
+    progress(0.75)
+    return [{"start": 0.0, "end": 1.2, "speaker": os.getpid()}]
+
+
+def failing_process_worker(path, model_paths, progress):
+    raise RuntimeError("fake native error")
+
+
+def crashing_process_worker(path, model_paths, progress):
+    os._exit(7)
+
+
+def hanging_process_worker(path, model_paths, progress):
+    progress(0.1)
+    time.sleep(60)
+
+
+def test_inference_spawns_and_returns_progress_without_native_dependencies(tmp_path):
+    manager, _ = fake_manager(tmp_path, worker=fake_process_worker)
+    manager._provision()
+    progress = []
+    parent_pid = os.getpid()
+    previous = {p.pid for p in multiprocessing.active_children()}
+    result = manager.diarize(tmp_path / "meeting.wav", progress.append)
+    assert result[0]["speaker"] != parent_pid
+    assert progress == [0.25, 0.75]
+    assert {p.pid for p in multiprocessing.active_children()} == previous
+
+
+@pytest.mark.parametrize("worker,error", [
+    (failing_process_worker, "failed"), (crashing_process_worker, "exited"),
+    (hanging_process_worker, "timed out"),
+])
+def test_child_failure_and_timeout_are_reaped_and_allow_retry(tmp_path, worker, error):
+    manager, _ = fake_manager(tmp_path, worker=worker, timeout=2)
+    manager._provision()
+    previous = {p.pid for p in multiprocessing.active_children()}
+    with pytest.raises((RuntimeError, TimeoutError), match=error):
+        manager.diarize(tmp_path / "meeting.wav", lambda _: None)
+    assert {p.pid for p in multiprocessing.active_children()} == previous
+    manager._worker = fake_process_worker
+    manager._timeout = 10
+    assert manager.diarize(tmp_path / "meeting.wav", lambda _: None)
 
 
 def test_decode_audio_contract(monkeypatch, tmp_path):

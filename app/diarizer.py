@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import multiprocessing
 import shutil
 import tarfile
 import threading
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,16 +111,46 @@ def decode_mono(path: Path):
     return decode_audio(str(path), sampling_rate=16000)
 
 
+def infer_speakers(path: Path, model_paths: tuple[Path, ...], progress,
+                   *, engine_factory=create_engine, decoder=decode_mono) -> list[dict]:
+    engine = engine_factory(*model_paths)
+    if engine.sample_rate != 16000:
+        raise RuntimeError("Unsupported speaker diarization sample rate")
+    samples = decoder(path)
+    if len(samples) == 0:
+        return []
+
+    def callback(processed, total):
+        progress(processed / max(total, 1))
+        return 0
+
+    result = engine.process(samples, callback=callback).sort_by_start_time()
+    return [{"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
+            for s in result]
+
+
+def _diarization_worker(connection, worker, path, model_paths):
+    # A module-level target is required by spawn, including frozen executables.
+    try:
+        result = worker(path, model_paths, lambda value: connection.send(("progress", value)))
+        connection.send(("result", result))
+    except Exception:
+        # Do not send native errors containing local paths or audio data.
+        connection.send(("error", None))
+    finally:
+        connection.close()
+
+
 class Diarizer:
     def __init__(self, model_dir: Path, *, availability=availability_reason,
-                 downloader=download_asset, engine_factory=create_engine,
-                 decoder=decode_mono, assets=ASSETS):
+                 downloader=download_asset, worker=infer_speakers,
+                 timeout=3600, assets=ASSETS):
         self.directory = model_dir / "diarization"
         self.assets = assets
         self._reason = availability()
         self._downloader = downloader
-        self._engine_factory = engine_factory
-        self._decoder = decoder
+        self._worker = worker
+        self._timeout = timeout
         self._lock = threading.Lock()
         self._inference_lock = threading.Lock()
         self._thread = None
@@ -189,22 +221,52 @@ class Diarizer:
     def diarize(self, path: Path, progress: Callable[[float], None]) -> list[dict]:
         if not self.status()["ready"]:
             raise RuntimeError("Speaker diarization models are not ready")
-        # Release the engine after each job and serialize optional CPU inference.
+        # sherpa-onnx holds the GIL during inference. A thread cannot isolate it
+        # from the API/event loop; spawn also avoids inheriting native thread state.
         with self._inference_lock:
-            engine = self._engine_factory(*(self.directory / a.filename for a in self.assets))
-            if engine.sample_rate != 16000:
-                raise RuntimeError("Unsupported speaker diarization sample rate")
-            samples = self._decoder(path)
-            if len(samples) == 0:
-                return []
-
-            def callback(processed, total):
-                progress(processed / max(total, 1))
-                return 0
-
-            result = engine.process(samples, callback=callback).sort_by_start_time()
-            return [{"start": float(s.start), "end": float(s.end), "speaker": int(s.speaker)}
-                    for s in result]
+            context = multiprocessing.get_context("spawn")
+            receiver, sender = context.Pipe(duplex=False)
+            process = context.Process(
+                target=_diarization_worker,
+                args=(sender, self._worker, path,
+                      tuple(self.directory / a.filename for a in self.assets)),
+                daemon=True,
+            )
+            started = False
+            try:
+                deadline = time.monotonic() + self._timeout
+                process.start()
+                started = True
+                sender.close()
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("Speaker diarization timed out")
+                    if not receiver.poll(min(remaining, 0.1)):
+                        # EOF also wakes poll if the child exits without a reply.
+                        continue
+                    try:
+                        kind, value = receiver.recv()
+                    except EOFError as exc:
+                        raise RuntimeError("Speaker diarization worker exited") from exc
+                    if kind == "result":
+                        return value
+                    if kind == "error":
+                        raise RuntimeError("Speaker diarization worker failed")
+                    if kind == "progress":
+                        progress(value)
+            finally:
+                sender.close()
+                receiver.close()
+                if started:
+                    # Reap failed/timed-out children as well as successful ones.
+                    if process.is_alive():
+                        process.terminate()
+                    process.join(5)
+                    if process.is_alive():
+                        process.kill()
+                        process.join()
+                process.close()
 
 
 def assign_speakers(segments: list[dict], turns: list[dict]) -> list[dict]:

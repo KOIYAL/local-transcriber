@@ -123,9 +123,9 @@ if (recorderRoot) {
   document.querySelector("#system-audio-row").hidden = !systemAudioSupported;
   document.querySelector("#system-audio-hint").hidden = !systemAudioSupported;
   systemAudioToggle.checked = systemAudioSupported
-    && window.localStorage.getItem(SYSTEM_AUDIO_STORAGE_KEY) === "true";
+    && window.LTPreferences.get(SYSTEM_AUDIO_STORAGE_KEY) === "true";
   const saveSystemAudioChoice = () => {
-    window.localStorage.setItem(SYSTEM_AUDIO_STORAGE_KEY, String(systemAudioToggle.checked));
+    window.LTPreferences.set(SYSTEM_AUDIO_STORAGE_KEY, String(systemAudioToggle.checked));
   };
   systemAudioToggle.addEventListener("change", saveSystemAudioChoice);
 
@@ -167,7 +167,7 @@ if (recorderRoot) {
       micSelect.closest(".mic-row").hidden = true;
       return;
     }
-    const saved = window.localStorage.getItem(MIC_STORAGE_KEY) || "";
+    const saved = window.LTPreferences.get(MIC_STORAGE_KEY) || "";
     const devices = await navigator.mediaDevices.enumerateDevices();
     const mics = devices.filter((device) => device.kind === "audioinput");
     const options = [{ id: "", label: rt("micDefault") }];
@@ -192,12 +192,12 @@ if (recorderRoot) {
   };
 
   micSelect.addEventListener("change", () => {
-    window.localStorage.setItem(MIC_STORAGE_KEY, micSelect.value);
+    window.LTPreferences.set(MIC_STORAGE_KEY, micSelect.value);
   });
   navigator.mediaDevices?.addEventListener?.("devicechange", refreshMicrophones);
 
   const microphoneConstraints = () => {
-    const saved = window.localStorage.getItem(MIC_STORAGE_KEY);
+    const saved = window.LTPreferences.get(MIC_STORAGE_KEY);
     return saved ? { deviceId: { exact: saved } } : true;
   };
 
@@ -378,7 +378,7 @@ if (recorderRoot) {
     } catch (error) {
       if (error?.name === "OverconstrainedError") {
         // The saved microphone is gone (unplugged); fall back to the default.
-        window.localStorage.removeItem(MIC_STORAGE_KEY);
+        window.LTPreferences.set(MIC_STORAGE_KEY, null);
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch {

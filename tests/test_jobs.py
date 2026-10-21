@@ -168,3 +168,26 @@ def test_optional_diarization_runs_before_exports_and_preserves_fallback(manager
     else:
         assert all("speaker" not in s for s in job.result["segments"])
     assert len(calls) == int(enabled)
+
+
+@pytest.mark.parametrize("failure", ["exception", "crash", "timeout"])
+def test_child_diarization_failure_keeps_transcript_and_source(manager, tmp_path, failure):
+    from test_diarizer import (
+        fake_manager, failing_process_worker, crashing_process_worker, hanging_process_worker,
+    )
+
+    worker = {"exception": failing_process_worker, "crash": crashing_process_worker,
+              "timeout": hanging_process_worker}[failure]
+    manager.diarizer, _ = fake_manager(tmp_path, worker=worker, timeout=2)
+    manager.diarizer._provision()
+    manager.engine.transcribe = lambda *args: {
+        "text": "hello", "segments": [{"start": 0, "end": 1, "text": "hello"}],
+    }
+    path = media(tmp_path)
+    job = manager.submit("meeting.wav", path, {"model": "tiny", "diarize": True})
+    wait_until(lambda: job.status == "completed", timeout=10)
+    assert job.result["diarization_failed"] is True
+    assert job.result["text"] == "hello"
+    assert "speaker" not in job.result["segments"][0]
+    assert job.exports["txt"].read_text(encoding="utf-8") == "hello\n"
+    assert path.exists()

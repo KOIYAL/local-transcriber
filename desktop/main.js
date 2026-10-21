@@ -51,6 +51,46 @@ function saveSettings() {
   }
 }
 
+// Renderer preferences are separate from privileged paths such as exportDirectory.
+const rendererSettingLimits = new Map([
+  ["local-transcriber-glossary", 500],
+  ["local-transcriber-locale", 2],
+  ["lt.mic-device-id", 1024],
+  ["lt.system-audio", 5],
+]);
+
+function trustedSettingsSender(event) {
+  try {
+    return mainWindow && event.sender === mainWindow.webContents
+      && event.senderFrame === mainWindow.webContents.mainFrame
+      && new URL(event.senderFrame.url).origin === new URL(backendUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+// Synchronous reads keep initial language/device selection and capture gestures
+// synchronous. Only these small preferences can be read or written over IPC.
+ipcMain.on("settings:get", (event, key) => {
+  event.returnValue = trustedSettingsSender(event) && rendererSettingLimits.has(key)
+    && typeof settings[key] === "string" ? settings[key] : null;
+});
+function setRendererSetting(event, key, value) {
+  if (!trustedSettingsSender(event) || !rendererSettingLimits.has(key)) return false;
+  if (value !== null && (typeof value !== "string" || value.length > rendererSettingLimits.get(key))) return false;
+  if (value !== null && key === "local-transcriber-locale" && !["ja", "en"].includes(value)) return false;
+  if (value !== null && key === "lt.system-audio" && !["true", "false"].includes(value)) return false;
+  if (value === null) delete settings[key];
+  else settings[key] = value;
+  saveSettings();
+  return true;
+}
+
+ipcMain.on("settings:set", (event, key, value) => {
+  // Assigning returnValue sends the reply immediately; reply only after saving.
+  event.returnValue = setRendererSetting(event, key, value);
+});
+
 // "transcript.txt" -> "transcript (2).txt" when the name is already taken.
 function uniqueSavePath(directory, filename) {
   const extension = path.extname(filename);

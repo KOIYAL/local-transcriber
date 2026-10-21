@@ -139,7 +139,7 @@ class TranscriptionEngine:
 
         language = options.get("language") or None
         task = options.get("task", "transcribe")
-        initial_prompt = options.get("initial_prompt") or None
+        glossary = options.get("initial_prompt") or None
         segments_iterator, info = model.transcribe(
             str(media_path),
             language=language,
@@ -147,7 +147,9 @@ class TranscriptionEngine:
             beam_size=int(options.get("beam_size", 5)),
             vad_filter=bool(options.get("vad_filter", True)),
             word_timestamps=False,
-            initial_prompt=initial_prompt,
+            # Hotwords reach every window even when previous text is reset.
+            # Also using initial_prompt would duplicate the first window's glossary.
+            hotwords=glossary,
             # Avoid minutes-long repetition loops in meeting recordings.
             # The glossary supplies consistent names instead of previous text.
             condition_on_previous_text=False,

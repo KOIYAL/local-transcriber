@@ -17,11 +17,12 @@ function installSystemAudioHandler(webContents, desktopCapturer, capability, get
   webContents.session.setDisplayMediaRequestHandler(async (request, callback) => {
     const allowed = () => {
       try {
+        const origin = new URL(request.securityOrigin).origin;
         return capability.supported && !webContents.isDestroyed()
           && request.frame === webContents.mainFrame
           && request.userGesture && request.audioRequested && request.videoRequested
-          && request.securityOrigin === new URL(getBackendUrl()).origin
-          && new URL(request.frame.url).origin === request.securityOrigin;
+          && origin === new URL(getBackendUrl()).origin
+          && new URL(request.frame.url).origin === origin;
       } catch {
         return false;
       }

@@ -5,6 +5,10 @@ const { contextBridge, ipcRenderer } = require("electron");
 const systemAudioPolicy = process.argv.find((arg) => arg.startsWith("--lt-system-audio="))
   ?.split("=")[1] || "unsupported-os";
 contextBridge.exposeInMainWorld("localTranscriber", {
+  settings: {
+    get: (key) => ipcRenderer.sendSync("settings:get", key),
+    set: (key, value) => ipcRenderer.sendSync("settings:set", key, value),
+  },
   systemAudio: {
     supported: systemAudioPolicy === "supported",
     reason: systemAudioPolicy === "supported" ? "" : systemAudioPolicy,

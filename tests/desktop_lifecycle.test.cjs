@@ -6,9 +6,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 
-function harness(platform = 'linux', trayFailure = null) {
+function harness(platform = 'linux', trayFailure = null, disk = new Map()) {
   const calls = { hidden: 0, quit: 0, warnings: 0, killed: 0, destroyed: 0 };
   const timers = new Map();
+  const handlers = new Map();
   let choice = 0, recordingState = 'idle', window;
   const app = new EventEmitter();
   Object.assign(app, {
@@ -16,6 +17,7 @@ function harness(platform = 'linux', trayFailure = null) {
     requestSingleInstanceLock: () => true,
     whenReady: () => ({ then() {} }),
     getLocale: () => 'en',
+    getPath: () => '/fake/userData',
     getLoginItemSettings: () => ({ openAtLogin: false }),
     quit() {
       const event = closeEvent();
@@ -28,6 +30,7 @@ function harness(platform = 'linux', trayFailure = null) {
       super();
       window = this;
       this.webContents = new EventEmitter();
+      this.webContents.mainFrame = { url: 'http://127.0.0.1:1234/' };
       this.webContents.setWindowOpenHandler = () => {};
     }
     hide() { calls.hidden++; }
@@ -49,7 +52,7 @@ function harness(platform = 'linux', trayFailure = null) {
     app, BrowserWindow: Window, Tray,
     Menu: { buildFromTemplate: items => items },
     nativeImage: { createFromPath: value => value },
-    ipcMain: { handle() {} },
+    ipcMain: { handle() {}, on(channel, handler) { handlers.set(channel, handler); } },
     dialog: { showMessageBoxSync() { calls.warnings++; return choice; } },
   };
   const context = vm.createContext({
@@ -62,6 +65,10 @@ function harness(platform = 'linux', trayFailure = null) {
         installSystemAudioHandler() {},
       };
       if (name === 'node:child_process' || name === 'node:net') return {};
+      if (name === 'node:fs') return {
+        readFileSync(file) { if (!disk.has(file)) throw new Error('missing'); return disk.get(file); },
+        writeFileSync(file, value) { disk.set(file, value); },
+      };
       return require(name);
     },
     fetch: async url => ({ ok: true, json: async () =>
@@ -73,8 +80,27 @@ function harness(platform = 'linux', trayFailure = null) {
   });
   vm.runInContext(fs.readFileSync('desktop/main.js', 'utf8'), context);
   const run = code => vm.runInContext(code, context);
-  run('backendUrl = "http://127.0.0.1:1234"; backendProcess = fakeBackend; createWindow()');
+  run('loadSettings(); backendUrl = "http://127.0.0.1:1234"; backendProcess = fakeBackend; createWindow()');
   return { calls, timers, run, app,
+    ipc(channel, args, overrides = {}) {
+      const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame, ...overrides };
+      let replies = 0, reply;
+      Object.defineProperty(event, 'returnValue', { set(value) {
+        replies++;
+        reply = value;
+        if (channel === 'settings:set' && value === true) {
+          const saved = JSON.parse(disk.get('/fake/userData/settings.json'));
+          assert.equal(saved[args[0]] ?? null, args[1]);
+        }
+      } });
+      handlers.get(channel)(event, ...args);
+      assert.equal(replies, 1);
+      return reply;
+    },
+    port(port) {
+      run(`backendUrl = "http://127.0.0.1:${port}"`);
+      window.webContents.mainFrame.url = `http://127.0.0.1:${port}/`;
+    },
     close() { const event = closeEvent(); window.emit('close', event); return event; },
     choose(value) { choice = value; },
     async poll(state) { recordingState = state; await run('pollBackendState()'); },
@@ -165,4 +191,46 @@ test('packaged Linux starts the bundled backend with its executable path', () =>
   assert.equal(command.executable, '/fake/resources/local-transcriber-backend/local-transcriber-backend');
   assert.equal(command.cwd, '/fake/resources/local-transcriber-backend');
   assert.deepEqual(Array.from(command.args), ['--port', '4321']);
+});
+
+test('preferences survive a new desktop process and backend port in settings.json', () => {
+  const disk = new Map();
+  const h = harness('linux', null, disk);
+  const values = {
+    'local-transcriber-glossary': 'KOIYAL、人名', 'local-transcriber-locale': 'ja',
+    'lt.mic-device-id': 'microphone-2', 'lt.system-audio': 'true',
+  };
+  for (const [key, value] of Object.entries(values)) {
+    assert.equal(h.ipc('settings:get', [key]), null);
+    assert.equal(h.ipc('settings:set', [key, value]), true);
+    assert.equal(h.ipc('settings:get', [key]), value);
+  }
+  const next = harness('linux', null, disk);
+  next.port(4321);
+  for (const [key, value] of Object.entries(values)) assert.equal(next.ipc('settings:get', [key]), value);
+  assert.equal(next.ipc('settings:set', ['lt.mic-device-id', null]), true);
+  assert.equal(harness('linux', null, disk).ipc('settings:get', ['lt.mic-device-id']), null);
+  assert.equal(JSON.parse(disk.get('/fake/userData/settings.json')).exportDirectory, null);
+});
+
+test('settings IPC rejects unrelated frames, keys and invalid values', () => {
+  const h = harness();
+  const key = 'local-transcriber-glossary';
+  for (const overrides of [
+    { sender: {} }, { senderFrame: null },
+    { senderFrame: { url: 'http://127.0.0.1:1234/' } },
+  ]) {
+    assert.equal(h.ipc('settings:set', [key, 'blocked'], overrides), false);
+    assert.equal(h.ipc('settings:get', [key], overrides), null);
+  }
+  h.run('mainWindow.webContents.mainFrame.url = "https://example.invalid/"');
+  assert.equal(h.ipc('settings:set', [key, 'blocked']), false);
+  h.port(1234);
+  for (const [key, value] of [
+    ['exportDirectory', '/tmp'], ['__proto__', 'bad'], ['unknown', 'bad'],
+    ['local-transcriber-glossary', 'x'.repeat(501)], ['local-transcriber-glossary', {}],
+    ['local-transcriber-locale', 'xx'], ['lt.system-audio', true], ['lt.system-audio', 'yes'],
+  ]) assert.equal(h.ipc('settings:set', [key, value]), false);
+  assert.equal(h.ipc('settings:get', ['exportDirectory']), null);
+  assert.equal(h.ipc('settings:get', [key]), null);
 });

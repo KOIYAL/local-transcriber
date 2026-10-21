@@ -49,12 +49,15 @@ test("desktop only grants local main-frame user requests; failures settle once",
     return replies[0];
   };
   assert.deepEqual(await run(), { video: sources[0], audio: "loopback" });
+  assert.deepEqual(await run({ securityOrigin: "http://127.0.0.1:8000/" }),
+    { video: sources[0], audio: "loopback" });
   for (const invalid of [
     { frame: null }, { frame: { url: contents.mainFrame.url } },
     { securityOrigin: "http://127.0.0.1:9000" }, { userGesture: false },
+    { securityOrigin: "http://127.0.0.1:9000/" }, { securityOrigin: "invalid" },
     { audioRequested: false }, { videoRequested: false },
   ]) assert.deepEqual(await run(invalid), {});
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   fail = true;
   assert.deepEqual(await run(), {});
   fail = false;
@@ -85,6 +88,24 @@ test("sandboxed preload exposes capability without exposing capture APIs", () =>
   }
 });
 
+test("preload settings bridge exposes only get/set with fixed IPC channels", () => {
+  const exposed = {}, calls = [];
+  vm.runInNewContext(fs.readFileSync("desktop/preload.js", "utf8"), {
+    process: { argv: [] },
+    require: () => ({
+      contextBridge: { exposeInMainWorld: (key, value) => { exposed[key] = value; } },
+      ipcRenderer: { sendSync(...args) { calls.push(args); return args[0] === 'settings:get' ? 'saved' : true; } },
+    }),
+  });
+  const bridge = exposed.localTranscriber.settings;
+  assert.deepEqual(Object.keys(bridge), ['get', 'set']);
+  assert.equal(bridge.get('local-transcriber-glossary'), 'saved');
+  assert.equal(bridge.set('lt.system-audio', 'true'), true);
+  assert.deepEqual(calls, [
+    ['settings:get', 'local-transcriber-glossary'], ['settings:set', 'lt.system-audio', 'true'],
+  ]);
+});
+
 class Target {
   constructor() { this.listeners = {}; }
   addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
@@ -102,6 +123,27 @@ class Stream {
   getVideoTracks() { return this.tracks.filter((track) => track.kind === "video"); }
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('preferences keep browser localStorage and tolerate unavailable storage', () => {
+  const stored = new Map([['local-transcriber-glossary', 'KOIYAL']]);
+  const window = { localStorage: {
+    getItem: key => stored.get(key) ?? null,
+    setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key),
+  } };
+  const load = () => vm.runInNewContext(fs.readFileSync('app/static/preferences.js', 'utf8'), { window });
+  load();
+  assert.equal(window.LTPreferences.get('local-transcriber-glossary'), 'KOIYAL');
+  window.LTPreferences.set('lt.mic-device-id', 'mic');
+  load();
+  assert.equal(window.LTPreferences.get('lt.mic-device-id'), 'mic');
+  window.LTPreferences.set('lt.mic-device-id', null);
+  assert.equal(stored.has('lt.mic-device-id'), false);
+  Object.defineProperty(window, 'localStorage', { get() { throw new Error('disabled'); } });
+  load();
+  assert.equal(window.LTPreferences.get('local-transcriber-glossary'), null);
+  window.LTPreferences.set('local-transcriber-glossary', 'session');
+  assert.equal(window.LTPreferences.get('local-transcriber-glossary'), 'session');
+});
 
 function recorderHarness(options = {}) {
   const elements = new Map();
@@ -182,6 +224,12 @@ function recorderHarness(options = {}) {
     window.desktop = {};
     window.localTranscriber = { systemAudio: { supported: options.desktop } };
   }
+  if (options.preferences) window.localTranscriber = {
+    ...window.localTranscriber,
+    settings: { get: key => options.preferences.get(key) ?? null,
+      set: (key, value) => value === null ? options.preferences.delete(key) : options.preferences.set(key, value) },
+  };
+  vm.runInNewContext(fs.readFileSync("app/static/preferences.js", "utf8"), { window });
   vm.runInNewContext(fs.readFileSync("app/static/recorder.js", "utf8"), {
     window, navigator: { mediaDevices }, AudioContext, MediaRecorder, FormData,
     document: {
@@ -328,6 +376,33 @@ test("capture is released before waiting for the backend to finish saving", asyn
   resolve();
   await settle();
   assert.equal(h.element("#record-toggle").disabled, false);
+});
+
+test("desktop microphone and PC audio choices restore, persist and clear on capture failure", async () => {
+  const preferences = new Map([['lt.mic-device-id', 'saved-mic'], ['lt.system-audio', 'true']]);
+  const h = recorderHarness({ desktop: true, preferences });
+  assert.equal(h.element('#system-audio-toggle').checked, true);
+  await h.click('#record-toggle');
+  assert.equal(h.calls.find(([type]) => type === 'mic')[1].audio.deviceId.exact, 'saved-mic');
+  await h.window.emit('pagehide');
+  h.element('#mic-select').value = 'other-mic';
+  await h.element('#mic-select').emit('change');
+  h.element('#system-audio-toggle').checked = false;
+  await h.element('#system-audio-toggle').emit('change');
+  assert.equal(preferences.get('lt.mic-device-id'), 'other-mic');
+  assert.equal(preferences.get('lt.system-audio'), 'false');
+  assert.equal(h.storage.size, 0);
+
+  const next = recorderHarness({ desktop: true, preferences, missingMic: true, displayError: 'NotAllowedError' });
+  assert.equal(next.element('#system-audio-toggle').checked, false);
+  await next.enable();
+  await next.click('#record-toggle');
+  assert.equal(preferences.has('lt.mic-device-id'), false);
+  assert.equal(preferences.get('lt.system-audio'), 'false');
+  assert.equal(next.calls.find(([type]) => type === 'mic')[1].audio.deviceId.exact, 'other-mic');
+  assert.equal(next.calls.filter(([type]) => type === 'mic')[1][1].audio, true);
+  assert.equal(next.storage.size, 0);
+  await next.window.emit('pagehide');
 });
 
 test("pending picker blocks duplicate starts; missing saved mic falls back; page exit releases inputs", async () => {

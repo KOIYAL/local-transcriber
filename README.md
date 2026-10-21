@@ -80,6 +80,32 @@ field to remove it. The backend trims whitespace and passes the first 500
 characters as Whisper's initial prompt. Keep it short: Whisper's prompt budget
 is 224 tokens. Leaving it empty preserves the usual behavior.
 
+## Online meeting audio (optional)
+
+Enable **Also record computer audio (online meetings)** in the recording panel
+to mix playback from Zoom, Teams or Meet with your microphone. It is off by
+default and the choice is saved in localStorage. **Computer audio included**
+indicates active capture. Stopping sends the audio into the usual transcription flow.
+
+- Desktop: Windows 10/11 and packaged apps on macOS 14.2+. On Mac, allow
+  microphone, screen recording and system audio capture; restart the app after
+  permission changes if needed. The toggle is hidden on older macOS, Mac
+  development launches and Linux Electron.
+- Browser: shown when the screen-sharing API is available. In Chrome's sharing
+  dialog, choose the meeting tab/screen and enable audio sharing. Availability
+  depends on the OS, browser and source; tab sharing only captures that tab.
+- Video tracks are stopped immediately and never saved or uploaded. Audio stays
+  on this computer. Whole-computer capture may also include notifications/music.
+- Denied/canceled sharing, missing audio or mixing failures turn the toggle off,
+  explain the problem and continue with microphone-only recording. Sharing that
+  ends during recording also leaves the microphone running.
+- Use headphones to avoid the microphone picking up playback twice. Bluetooth
+  headsets may change audio quality or output devices when their microphone is
+  used; try wired headphones with a built-in or USB microphone if capture fails.
+
+Windows/macOS hardware and packaged permission checks remain manual and have
+not been run here. See the [verification checklist (Japanese)](docs/system-audio-2026-10-21.md).
+
 ## Environment variables
 
 | Variable | Default | Description |

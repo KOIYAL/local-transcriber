@@ -845,6 +845,16 @@ footer p {
   font: inherit;
   font-size: 0.85rem;
 }
+.system-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.system-audio-row input {
+  width: auto;
+  flex-shrink: 0;
+}
 .app-settings {
   margin-top: 1.4rem;
   padding-top: 1rem;

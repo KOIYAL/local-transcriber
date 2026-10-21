@@ -122,6 +122,11 @@
               <span data-recorder-i18n="micLabel">Microphone</span>
               <select id="mic-select"></select>
             </label>
+            <label id="system-audio-row" class="system-audio-row" hidden>
+              <input id="system-audio-toggle" type="checkbox" aria-describedby="system-audio-hint">
+              <span data-recorder-i18n="systemAudioLabel">Also record computer audio (online meetings)</span>
+            </label>
+            <span id="system-audio-hint" data-recorder-i18n="systemAudioHint" hidden>Allow audio sharing when prompted. Video is not saved.</span>
           </div>
           <div class="recorder-controls">
             <button id="record-toggle" class="primary-button record-button" type="button">
@@ -135,6 +140,7 @@
             <span id="record-elapsed" class="record-elapsed">00:00</span>
             <div class="level-track"><div id="level-bar" class="level-bar"></div></div>
             <span id="record-state-label"></span>
+            <span id="system-audio-active" data-recorder-i18n="systemAudioActive" hidden>Computer audio included</span>
           </div>
           <p id="record-warning" class="record-warning" hidden></p>
         </div>

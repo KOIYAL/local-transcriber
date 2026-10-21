@@ -4,6 +4,7 @@ const {
   Menu,
   Tray,
   dialog,
+  desktopCapturer,
   ipcMain,
   nativeImage,
   shell,
@@ -12,6 +13,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
+const { systemAudioCapability, installSystemAudioHandler } = require("./system-audio");
 
 let mainWindow = null;
 let backendProcess = null;
@@ -300,6 +302,7 @@ function clickRecorderButton(selector) {
   mainWindow?.webContents
     .executeJavaScript(
       `document.querySelector(${JSON.stringify(selector)})?.click()`,
+      true,
     )
     .catch(() => {});
 }
@@ -481,6 +484,9 @@ function createTray() {
 }
 
 function createWindow() {
+  const systemAudio = systemAudioCapability(
+    process.platform, process.getSystemVersion(), app.isPackaged,
+  );
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 820,
@@ -494,9 +500,13 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       preload: path.join(__dirname, "preload.js"),
+      additionalArguments: [`--lt-system-audio=${systemAudio.supported ? "supported" : systemAudio.reason}`],
     },
   });
 
+  installSystemAudioHandler(
+    mainWindow.webContents, desktopCapturer, systemAudio, () => backendUrl,
+  );
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://")) shell.openExternal(url);
     return { action: "deny" };

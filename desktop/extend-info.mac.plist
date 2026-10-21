@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>Local Transcriber captures audio playing on this Mac to transcribe online meetings locally. オンライン会議の音声をこのMacの中だけで文字起こしするために、再生中の音声を取得します。</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Local Transcriber requests screen capture access to obtain meeting audio. Video is immediately stopped and never saved. 会議の音声を取得するために画面収録の許可を使います。映像の取得はすぐに停止し、保存しません。</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Local Transcriber uses the microphone to record meetings and transcribe them on this Mac. 会議を録音してこのMacの中だけで文字起こしするためにマイクを使用します。音声は外部に送信されません。</string>
 </dict>

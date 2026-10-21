@@ -1,4 +1,4 @@
-// In-app microphone recording (Phase 1).
+// In-app microphone recording with optional local computer audio.
 //
 // Chunks are uploaded every few seconds while the meeting is still running, so
 // a crash never loses more than the in-flight chunk. The finished recording
@@ -30,6 +30,13 @@ const RECORDER_STRINGS = {
     recordRecovered: "An interrupted recording was found and is being transcribed.",
     micLabel: "Microphone",
     micDefault: "System default microphone",
+    systemAudioLabel: "Also record computer audio (online meetings)",
+    systemAudioHint: "Allow audio sharing when prompted. Video is not saved.",
+    systemAudioActive: "Computer audio included",
+    systemAudioDenied: "Computer audio sharing was canceled or denied. Recording with the microphone only.",
+    systemAudioMissing: "The selected source has no audio. Recording with the microphone only. Next time, choose a tab/screen and enable audio sharing.",
+    systemAudioFailed: "Computer audio could not be captured or mixed. Check the OS capture permissions. Recording with the microphone only.",
+    systemAudioEnded: "Computer audio sharing ended. Recording continues with the microphone only.",
   },
   ja: {
     orRecord: "または、その場で録音",
@@ -54,7 +61,14 @@ const RECORDER_STRINGS = {
     recordPartial: "保存エラーより前に録音した部分だけを文字起こしします。",
     recordRecovered: "中断された録音が見つかったので、文字起こしを始めます。",
     micLabel: "マイク",
-    micDefault: "システム既定のマイク",
+    micDefault: "システムのデフォルトのマイク",
+    systemAudioLabel: "PC で再生中の音声も録る（オンライン会議用）",
+    systemAudioHint: "許可の画面が出たら音声の共有も有効にしてください。映像は保存しません。",
+    systemAudioActive: "PC 音声あり",
+    systemAudioDenied: "PC 音声の共有がキャンセルされたか、許可されませんでした。マイクだけで録音します。",
+    systemAudioMissing: "選んだ共有元に音声がありません。マイクだけで録音します。次回はタブや画面を選び、音声の共有も有効にしてください。",
+    systemAudioFailed: "PC 音声の取得または合成に失敗しました。OS の収録権限を確認してください。マイクだけで録音します。",
+    systemAudioEnded: "PC 音声の共有が終了しました。マイクだけで録音を続けます。",
   },
 };
 
@@ -75,6 +89,11 @@ if (recorderRoot) {
   let sessionId = null;
   let mediaRecorder = null;
   let mediaStream = null;
+  let microphoneStream = null;
+  let displayStream = null;
+  let mixedStream = null;
+  let displaySource = null;
+  let starting = false;
   let audioContext = null;
   let analyser = null;
   let currentLevel = 0;
@@ -94,6 +113,54 @@ if (recorderRoot) {
 
   const micSelect = document.querySelector("#mic-select");
   const MIC_STORAGE_KEY = "lt.mic-device-id";
+  const SYSTEM_AUDIO_STORAGE_KEY = "lt.system-audio";
+  const systemAudioToggle = document.querySelector("#system-audio-toggle");
+  const desktopAudio = window.localTranscriber?.systemAudio;
+  const systemAudioSupported = Boolean(
+    navigator.mediaDevices?.getDisplayMedia && window.AudioContext
+    && (desktopAudio ? desktopAudio.supported : !window.desktop),
+  );
+  document.querySelector("#system-audio-row").hidden = !systemAudioSupported;
+  document.querySelector("#system-audio-hint").hidden = !systemAudioSupported;
+  systemAudioToggle.checked = systemAudioSupported
+    && window.localStorage.getItem(SYSTEM_AUDIO_STORAGE_KEY) === "true";
+  const saveSystemAudioChoice = () => {
+    window.localStorage.setItem(SYSTEM_AUDIO_STORAGE_KEY, String(systemAudioToggle.checked));
+  };
+  systemAudioToggle.addEventListener("change", saveSystemAudioChoice);
+
+  const stopStream = (stream) => stream?.getTracks().forEach((track) => track.stop());
+  const fallBackToMicrophone = (reason) => {
+    displaySource?.disconnect();
+    displaySource = null;
+    stopStream(displayStream);
+    displayStream = null;
+    systemAudioToggle.checked = false;
+    saveSystemAudioChoice();
+    document.querySelector("#system-audio-active").hidden = true;
+    window.LT?.showToast(rt(reason));
+  };
+
+  const captureComputerAudio = async () => {
+    try {
+      // Call before any other await so browser user activation is still valid.
+      displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+      displayStream.getVideoTracks().forEach((track) => track.stop());
+      const tracks = displayStream.getAudioTracks();
+      if (!tracks.length || tracks.some((track) => track.readyState === "ended")) {
+        fallBackToMicrophone("systemAudioMissing");
+        return;
+      }
+      const capturedStream = displayStream;
+      tracks.forEach((track) => track.addEventListener("ended", () => {
+        if (displayStream === capturedStream) fallBackToMicrophone("systemAudioEnded");
+      }, { once: true }));
+    } catch (error) {
+      fallBackToMicrophone(
+        error?.name === "NotAllowedError" ? "systemAudioDenied" : "systemAudioFailed",
+      );
+    }
+  };
 
   const refreshMicrophones = async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
@@ -158,7 +225,11 @@ if (recorderRoot) {
     pauseButton.hidden = state === "idle";
     cancelButton.hidden = state === "idle";
     livePanel.hidden = state === "idle";
-    micSelect.disabled = state !== "idle";
+    micSelect.disabled = starting || state !== "idle";
+    systemAudioToggle.disabled = starting || state !== "idle";
+    pauseButton.disabled = state === "stopping";
+    cancelButton.disabled = state === "stopping";
+    document.querySelector("#system-audio-active").hidden = !displayStream || state === "idle";
     pauseButton.textContent = state === "paused" ? rt("recordResume") : rt("recordPause");
     stateLabel.textContent =
       state === "paused"
@@ -182,15 +253,28 @@ if (recorderRoot) {
     }
   };
 
-  const resetLocalState = () => {
+  const releaseMedia = () => {
     window.clearInterval(elapsedTimer);
     window.clearInterval(meterTimer);
-    mediaStream?.getTracks().forEach((track) => track.stop());
+    stopStream(mediaStream);
+    stopStream(microphoneStream);
+    stopStream(displayStream);
+    stopStream(mixedStream);
     audioContext?.close().catch(() => {});
-    mediaRecorder = null;
     mediaStream = null;
+    microphoneStream = null;
+    displayStream = null;
+    mixedStream = null;
+    displaySource = null;
     audioContext = null;
     analyser = null;
+    document.querySelector("#system-audio-active").hidden = true;
+  };
+
+  const resetLocalState = () => {
+    releaseMedia();
+    mediaRecorder = null;
+    starting = false;
     sessionId = null;
     uploadChain = Promise.resolve();
     uploadFailed = false;
@@ -278,11 +362,15 @@ if (recorderRoot) {
   };
 
   const startRecording = async () => {
+    if (starting || state !== "idle") return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       window.LT?.showToast(rt("recorderUnsupported"));
       return;
     }
     toggleButton.disabled = true;
+    starting = true;
+    syncControls();
+    if (systemAudioSupported && systemAudioToggle.checked) await captureComputerAudio();
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: microphoneConstraints(),
@@ -294,17 +382,20 @@ if (recorderRoot) {
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch {
+          resetLocalState();
           window.LT?.showToast(rt("micDenied"));
           toggleButton.disabled = false;
           return;
         }
         refreshMicrophones();
       } else {
+        resetLocalState();
         window.LT?.showToast(rt("micDenied"));
         toggleButton.disabled = false;
         return;
       }
     }
+    microphoneStream = mediaStream;
     refreshMicrophones();
     try {
       const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(
@@ -320,6 +411,25 @@ if (recorderRoot) {
       sessionId = (await response.json()).session_id;
 
       audioContext = new AudioContext();
+      await audioContext.resume();
+      if (displayStream) {
+        let microphoneSource = null;
+        try {
+          const destination = audioContext.createMediaStreamDestination();
+          mixedStream = destination.stream;
+          microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
+          displaySource = audioContext.createMediaStreamSource(displayStream);
+          microphoneSource.connect(destination);
+          displaySource.connect(destination);
+          mediaStream = mixedStream;
+        } catch {
+          microphoneSource?.disconnect();
+          stopStream(mixedStream);
+          mixedStream = null;
+          mediaStream = microphoneStream;
+          fallBackToMicrophone("systemAudioFailed");
+        }
+      }
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
       audioContext.createMediaStreamSource(mediaStream).connect(analyser);
@@ -345,12 +455,14 @@ if (recorderRoot) {
       // The backend session was opened before the local recorder failed
       // (AudioContext / MediaRecorder); release it or every later start
       // would be refused with recording_in_progress.
+      releaseMedia();
       await releaseSession(sessionId);
-      mediaStream?.getTracks().forEach((track) => track.stop());
       resetLocalState();
       window.LT?.showToast(rt("recordFailed"));
     } finally {
+      starting = false;
       toggleButton.disabled = false;
+      syncControls();
     }
   };
 
@@ -377,6 +489,8 @@ if (recorderRoot) {
         // Already inactive: the chunks that exist are all we will get.
       }
     }
+    // Stop capture immediately; pending uploads may take time to finish.
+    releaseMedia();
     await uploadChain;
     const partial = uploadFailed;
     try {
@@ -445,13 +559,21 @@ if (recorderRoot) {
     if (!sessionId || !window.confirm(rt("recordCancelConfirm"))) return;
     discarding = true;
     const targetSession = sessionId;
+    state = "stopping";
+    syncControls();
+    toggleButton.disabled = true;
     try {
       mediaRecorder?.stop();
     } catch {
       // The recorder may already be inactive; deletion below still applies.
     }
-    await fetch(`/api/recording/${targetSession}`, { method: "DELETE" });
-    resetLocalState();
+    releaseMedia();
+    try {
+      await releaseSession(targetSession);
+    } finally {
+      resetLocalState();
+      toggleButton.disabled = false;
+    }
   };
 
   toggleButton.addEventListener("click", () => {
@@ -461,8 +583,9 @@ if (recorderRoot) {
   pauseButton.addEventListener("click", togglePause);
   cancelButton.addEventListener("click", cancelRecording);
   window.addEventListener("beforeunload", (event) => {
-    if (state === "recording" || state === "paused") event.preventDefault();
+    if (starting || state !== "idle") event.preventDefault();
   });
+  window.addEventListener("pagehide", resetLocalState);
   document.querySelectorAll("[data-locale]").forEach((button) => {
     button.addEventListener("click", () => localize());
   });

@@ -130,6 +130,8 @@ echo "[3/5] Installing Electron dependencies..."
 )
 
 echo "[4/5] Building the macOS application..."
+# extend-info.mac.plist supplies microphone, screen and system audio usage text.
+# entitlements.mac.plist already grants audio-input for the hardened runtime.
 PACKAGER_ARGS=(
   "."
   "LocalTranscriber"

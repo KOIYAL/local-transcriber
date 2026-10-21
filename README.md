@@ -3,7 +3,10 @@
 **Private, on-device transcription for Windows and macOS.** Drop in an audio
 or video file, get timestamped text — and a local-LLM summary — without
 uploading your audio or text. No account, no API key, no cloud.
-Linux x64 test builds can also be built locally or with GitHub Actions.
+Version **0.7.0** adds optional online meeting audio, a glossary, experimental
+speaker separation, Linux x64 test builds and unsigned Store MSIX artifacts.
+See the [0.7.0 release notes](docs/release-notes-0.7.0-gh.md).
+Release builds, hardware validation and publication are still pending.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/KOIYAL)
@@ -13,7 +16,8 @@ Linux x64 test builds can also be built locally or with GitHub Actions.
 ## Features
 
 - **Fully local**: transcription (faster-whisper) and summarization run on
-  your machine; source files are deleted after processing by default
+  your machine; source copies are deleted after successful transcription by default
+  and retained on transcription or speaker-separation failure
 - **Record meetings in the app**: one button records from the microphone
   and feeds the audio straight into transcription when you stop. Chunks
   are saved to disk every few seconds while recording, so a crash never
@@ -21,6 +25,14 @@ Linux x64 test builds can also be built locally or with GitHub Actions.
 - **Tray resident**: the app lives in the system tray with a state-shaped
   icon (idle / recording / paused / transcribing), tray controls for
   recording, and a warning if you try to quit mid-recording
+- **Online meeting audio**: optionally mix computer playback with your microphone
+  on supported systems; off by default
+- **Glossary**: up to 500 characters of company, people and product names, used
+  throughout long recordings; repeated-text loops are also reduced
+- **Experimental speaker separation**: optional numbered labels in results,
+  copied text and TXT/SRT/VTT/JSON exports; requires at least 8 GiB RAM
+- **Release notifications**: an optional GitHub check with a 24-hour cache;
+  disable it with `LT_UPDATE_CHECK=off`
 - **Zero-setup model management**: on first run the app picks a Whisper
   model that fits this computer's memory and downloads it automatically
 - **Summaries on completed transcripts**: one click produces a
@@ -35,6 +47,22 @@ Linux x64 test builds can also be built locally or with GitHub Actions.
 ![Summary result with SUMMARY.TXT export](docs/screenshots/summary-3-result.png)
 
 ![In-app meeting recording with live level meter](docs/screenshots/recording-2-recording.png)
+
+## 0.7.0 platforms and build targets
+
+| Environment | Package / build target | Computer audio | Closing the window |
+| --- | --- | --- | --- |
+| Windows 10/11 x64 | Portable ZIP; Store submission MSIX | Optional | Stays in tray |
+| macOS Apple Silicon | DMG; check signing/notarization before distribution | Packaged app on macOS 14.2+ | Stays in tray |
+| Ubuntu 22.04+ x86_64 | tar.gz test build | Hidden in Electron | Quits; confirms while recording/paused |
+| Browser, run from source | Python 3.10+ | Depends on screen-sharing API, OS and source | No desktop tray controls |
+
+Linux uses Ubuntu 22.04 as its build baseline; GUI hardware checks are pending.
+The Mac script can build for Intel, but this release targets Apple Silicon.
+Speaker separation requires a working optional dependency and at least 8 GiB RAM.
+Summary controls appear only when a compatible engine is available; Ubuntu 22.04
+CI normally omits modelshelf and hides summaries. Existing screenshots predate
+the new 0.7.0 features and need replacement before publication.
 
 ## Get it
 
@@ -58,8 +86,9 @@ Linux x64 test builds can also be built locally or with GitHub Actions.
   ```
 
 - **Desktop builds**: `build-windows.cmd` on Windows,
-  `./build-macos.sh` on macOS — or let GitHub Actions build the signed
-  macOS app in the cloud ([docs/CLOUD-MAC-BUILD.md](docs/CLOUD-MAC-BUILD.md)).
+  `./build-macos.sh` on macOS, `./build-linux.sh` on Linux. GitHub Actions
+  can build the macOS app in the cloud (signing needs configured credentials):
+  [cloud build instructions](docs/CLOUD-MAC-BUILD.md).
 
 ## Linux (test builds)
 
@@ -102,7 +131,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 The script installs `.[desktop,summary,diarize]` using the CPU wheel extra index,
 fetches a pinned, SHA-256-verified modelshelf asset, builds the PyInstaller
 backend and packages Electron. Output: `dist/LocalTranscriber-<version>-linux-x64.tar.gz`.
-The version comes from `desktop/package.json` (still 0.6.0 until release preparation).
+The version comes from `desktop/package.json` (currently 0.7.0).
 Build on Ubuntu 22.04 for the intended baseline; builds made on newer systems
 may require newer system libraries. Cross-compilation is not supported.
 The workflow runs on `ubuntu-22.04` for manual dispatch and `v*` tags, tests first,
@@ -124,17 +153,22 @@ Already installed models, including Medium, are kept. On a machine with at
 least 32 GB, use the model check button in Settings to choose the Turbo upgrade.
 
 The optional glossary accepts company, people and product names for both file
-uploads and recordings. It is saved in this device's localStorage; clear the
-field to remove it. The backend trims whitespace and passes the first 500
-characters as Whisper's initial prompt. Keep it short: Whisper's prompt budget
-is 224 tokens. Leaving it empty preserves the usual behavior.
+uploads and recordings. Desktop apps save it in their local `settings.json`;
+browsers use localStorage for the current origin. Microphone, display language
+and computer-audio choices use the same storage, preserving desktop preferences
+across restarts even when the backend port changes. Clear the field to remove
+entries. The backend trims whitespace and passes the first 500 characters as
+Whisper hotwords for every processing window, including later parts of long audio.
+Keep it short: Whisper's prompt budget is 224 tokens. Leaving it empty preserves
+the usual behavior.
 
 ## Online meeting audio (optional)
 
 Enable **Also record computer audio (online meetings)** in the recording panel
 to mix playback from Zoom, Teams or Meet with your microphone. It is off by
-default and the choice is saved in localStorage. **Computer audio included**
-indicates active capture. Stopping sends the audio into the usual transcription flow.
+default and the choice is saved in desktop `settings.json` or browser localStorage.
+**Computer audio included** indicates active capture. Stopping sends the audio
+into the usual transcription flow.
 
 - Desktop: Windows 10/11 and packaged apps on macOS 14.2+. On Mac, allow
   microphone, screen recording and system audio capture; restart the app after
@@ -157,7 +191,7 @@ not been run here. See the [verification checklist (Japanese)](docs/system-audio
 
 ## Speaker separation (experimental, optional)
 
-This feature is under development. For source runs, install
+This is an experimental 0.7.0 feature. For source runs, install
 `.venv/bin/pip install -e ".[diarize]"` and restart. The checkbox appears only
 when sherpa-onnx loads successfully and the computer has at least 8 GiB of RAM.
 It is off by default, applies to both files and recordings, and resets on page reload.
@@ -170,8 +204,10 @@ No pyannote Python package, torch or Hugging Face token is needed.
 
 Results, copied text and exports include numbered labels such as `話者1` and
 `話者2`. These do not identify people by name. Overlapping speech and short turns
-can be misassigned; processing takes extra time and memory. If separation fails,
-the ordinary transcript remains available with a notice, and the source audio
+can be misassigned; processing takes extra time and memory. A separate process
+keeps the API and recording chunk saves responsive. On failure, abnormal exit
+or the one-hour processing timeout, the ordinary transcript remains available
+with a notice, and the source audio
 is retained in `data/uploads/`. Windows/macOS packaged execution and accuracy
 on real meetings still need manual checks. See the
 [implementation and verification notes (Japanese)](docs/diarization-2026-10-21.md).

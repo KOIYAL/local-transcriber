@@ -153,5 +153,5 @@ def test_api_uses_actual_app_version(tmp_path):
         app.state.update_checker = uc.UpdateChecker(tmp_path, release)
         response = client.get("/api/update-check")
         assert response.status_code == 200
-        assert response.json()["current"] == app.version == "0.6.0"
+        assert response.json()["current"] == app.version == "0.7.0"
         assert response.json()["update_available"]

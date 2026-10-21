@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-set "VERSION=0.6.0"
+set "VERSION=0.7.0"
 
 set "PYTHON=.venv\Scripts\python.exe"
 if not exist "%PYTHON%" (

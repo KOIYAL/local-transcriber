@@ -30,6 +30,7 @@ elif [[ ! -x .venv/bin/python ]]; then
 fi
 PYTHON="$PWD/.venv/bin/python"
 "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 10), "Python 3.10+ is required"'
+# Use the same package version as Electron Packager for the archive name.
 VERSION="$(node -p 'require("./desktop/package.json").version')"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Expected a three-part release version in desktop/package.json."

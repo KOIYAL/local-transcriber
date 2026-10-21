@@ -1,8 +1,8 @@
 {
   "name": "local-transcriber-desktop",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
-  "description": "Simple local audio and video transcription for Windows and macOS",
+  "description": "Simple local audio and video transcription for Windows, macOS and Linux",
   "main": "main.js",
   "author": "Local Transcriber",
   "license": "AGPL-3.0-only",

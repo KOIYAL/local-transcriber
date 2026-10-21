@@ -354,6 +354,12 @@ if (recorderRoot) {
     }
   };
 
+  const transcriptionForm = () => {
+    const data = new FormData();
+    data.set("glossary", window.LT?.getGlossary() || "");
+    return data;
+  };
+
   const stopRecording = async () => {
     if (!mediaRecorder || !sessionId) return;
     const targetSession = sessionId;
@@ -378,6 +384,7 @@ if (recorderRoot) {
       // the meeting; transcribing that beats throwing the recording away.
       const response = await fetch(`/api/recording/${targetSession}/stop`, {
         method: "POST",
+        body: transcriptionForm(),
       });
       if (!response.ok) throw new Error(await readErrorCode(response));
       const job = await response.json();
@@ -404,6 +411,7 @@ if (recorderRoot) {
       if (!status.session_id || status.state === "idle") return;
       const response = await fetch(`/api/recording/${status.session_id}/stop`, {
         method: "POST",
+        body: transcriptionForm(),
       });
       if (!response.ok) {
         await releaseSession(status.session_id);

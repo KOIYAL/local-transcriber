@@ -148,7 +148,9 @@ class TranscriptionEngine:
             vad_filter=bool(options.get("vad_filter", True)),
             word_timestamps=False,
             initial_prompt=initial_prompt,
-            condition_on_previous_text=True,
+            # Avoid minutes-long repetition loops in meeting recordings.
+            # The glossary supplies consistent names instead of previous text.
+            condition_on_previous_text=False,
         )
 
         duration = max(float(getattr(info, "duration", 0.0) or 0.0), 0.001)

@@ -84,7 +84,7 @@ MODEL_PRESETS = {
     },
     "turbo": {
         "label": "Turbo",
-        "description": "高精度かつ高速。GPU推奨",
+        "description": "高精度かつ高速。メモリ32GB以上で自動選択",
     },
 }
 

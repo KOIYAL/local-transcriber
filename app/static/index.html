@@ -26,6 +26,10 @@
       </div>
     </header>
 
+    <p id="update-notice" class="update-notice" hidden role="status">
+      <a id="update-link" target="_blank" rel="noopener noreferrer"></a>
+    </p>
+
     <main>
       <section class="hero">
         <div class="eyebrow">PRIVATE SPEECH TO TEXT</div>
@@ -64,6 +68,12 @@
             <h2 id="workspace-title" data-i18n="selectFile">Select a file</h2>
           </div>
           <p id="limit-label" class="file-limit" data-i18n="checkingLimit">Checking limit...</p>
+        </div>
+
+        <div class="glossary-field">
+          <label for="glossary" data-i18n="glossaryLabel">Glossary (company, people and product names)</label>
+          <textarea id="glossary" rows="2" maxlength="500" aria-describedby="glossary-hint"></textarea>
+          <p id="glossary-hint" data-i18n="glossaryHint">Optional, up to 500 characters. Used for files and recordings; saved on this device.</p>
         </div>
 
         <form id="transcription-form">

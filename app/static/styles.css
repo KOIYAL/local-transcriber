@@ -881,3 +881,34 @@ footer p {
   font-size: 0.85rem;
   white-space: nowrap;
 }
+
+.update-notice {
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.update-notice a {
+  color: var(--accent-dark);
+}
+
+.glossary-field {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+
+.glossary-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  resize: vertical;
+}
+
+.glossary-field p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}

@@ -30,6 +30,7 @@ from app.jobs import JobManager
 from app.llm_manager import LlmManager
 from app.model_manager import ModelManager
 from app.summarizer import SummaryEngine, llama_available
+from app.update_checker import UpdateChecker
 
 # Which summary engine to use: `auto` prefers Apple Intelligence when the
 # machine supports it and falls back to the local LLM; `apple` / `local`
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
         SETTINGS.model_dir,
     ):
         directory.mkdir(parents=True, exist_ok=True)
+    app.state.update_checker = UpdateChecker(SETTINGS.data_dir)
     app.state.models = ModelManager(SETTINGS)
     app.state.jobs = JobManager(SETTINGS)
     app.state.recorder = RecordingManager(
@@ -202,6 +204,12 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/update-check")
+def update_check(request: Request) -> dict:
+    # Run urllib in FastAPI's worker pool so recording chunks stay responsive.
+    return request.app.state.update_checker.check(request.app.version)
+
+
 @app.get("/api/config")
 async def config(request: Request) -> dict:
     setup = model_manager(request).status()
@@ -276,6 +284,7 @@ async def create_job(
     request: Request,
     file: Annotated[UploadFile, File(...)],
     vad_filter: Annotated[bool, Form()] = True,
+    glossary: Annotated[str, Form()] = "",
 ) -> dict:
     original_name = Path(file.filename or "upload").name
     extension = Path(original_name).suffix.lower()
@@ -325,7 +334,7 @@ async def create_job(
         "task": "transcribe",
         "vad_filter": vad_filter,
         "beam_size": 5,
-        "initial_prompt": "",
+        "initial_prompt": glossary.strip()[:500],
     }
     job = job_manager(request).submit(original_name, stored_path, options)
     return job.as_dict()
@@ -393,6 +402,7 @@ async def stop_recording(
     session_id: str,
     request: Request,
     vad_filter: Annotated[bool, Form()] = True,
+    glossary: Annotated[str, Form()] = "",
 ) -> dict:
     setup_state = model_manager(request).status()
     options = {
@@ -401,7 +411,7 @@ async def stop_recording(
         "task": "transcribe",
         "vad_filter": vad_filter,
         "beam_size": 5,
-        "initial_prompt": "",
+        "initial_prompt": glossary.strip()[:500],
     }
     try:
         job = recording_manager(request).stop(session_id, options)

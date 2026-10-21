@@ -2,7 +2,7 @@
 
 **Private, on-device transcription for Windows and macOS.** Drop in an audio
 or video file, get timestamped text — and a local-LLM summary — without
-anything leaving your computer. No account, no API key, no cloud.
+uploading your audio or text. No account, no API key, no cloud.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/KOIYAL)
@@ -59,6 +59,47 @@ anything leaving your computer. No account, no API key, no cloud.
 - **Desktop builds**: `build-windows.cmd` on Windows,
   `./build-macos.sh` on macOS — or let GitHub Actions build the signed
   macOS app in the cloud ([docs/CLOUD-MAC-BUILD.md](docs/CLOUD-MAC-BUILD.md)).
+
+## Models and glossary
+
+The automatic model choice uses total system memory:
+
+| Memory | Model |
+| --- | --- |
+| Below 8 GB | Tiny |
+| 8 GB to below 16 GB | Base |
+| 16 GB to below 32 GB | Small |
+| 32 GB or more | Turbo (large-v3-turbo, about 1.62 GB) |
+
+Already installed models, including Medium, are kept. On a machine with at
+least 32 GB, use the model check button in Settings to choose the Turbo upgrade.
+
+The optional glossary accepts company, people and product names for both file
+uploads and recordings. It is saved in this device's localStorage; clear the
+field to remove it. The backend trims whitespace and passes the first 500
+characters as Whisper's initial prompt. Keep it short: Whisper's prompt budget
+is 224 tokens. Leaving it empty preserves the usual behavior.
+
+## Environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `LT_UPDATE_CHECK` | `on` | Check for new releases; `off`, `0`, `false` or `no` disables the request |
+| `TRANSCRIBER_DATA_DIR` | `./data` | Directory for uploads, outputs and the update cache |
+
+See [README.ja.md](README.ja.md#環境変数) for the full settings list.
+
+## Data handling
+
+Audio, glossary entries, transcripts and summaries stay on this computer.
+Initial model setup and user-selected model upgrades download model files.
+The optional release check makes one GET request to
+`https://api.github.com/repos/KOIYAL/local-transcriber/releases/latest`, with no
+audio or text attached. Successes and failures are cached for 24 hours in
+`data_dir/update-check.json`. Set `LT_UPDATE_CHECK=off` to disable this request.
+Failures are silent and do not affect offline transcription. A newer release
+appears as a link at the top of the page and in the desktop tray; the tray
+asks the local backend at most once per hour and shares its 24-hour cache.
 
 ## How it works
 

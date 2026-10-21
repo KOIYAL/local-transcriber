@@ -12,8 +12,8 @@ from app.system_info import select_model_for_memory
         (15.9, "base"),
         (16, "small"),
         (31.9, "small"),
-        (32, "medium"),
-        (64, "medium"),
+        (32, "turbo"),
+        (64, "turbo"),
     ],
 )
 def test_select_model_for_memory(memory_gb: float, expected: str) -> None:

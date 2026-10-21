@@ -1,3 +1,5 @@
+import pytest
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -70,15 +72,18 @@ def test_manager_upgrade_check_ordering(tmp_path) -> None:
     )
     manager = ModelManager(settings)
     manager.model_name = "tiny"
-    manager.memory_bytes = 64 * 1024**3  # recommends medium
+    manager.memory_bytes = 64 * 1024**3  # recommends turbo
     check = manager.upgrade_check()
     assert check == {
         "current": "tiny",
-        "recommended": "medium",
+        "recommended": "turbo",
         "upgrade_available": True,
     }
 
     manager.model_name = "medium"
+    assert manager.upgrade_check()["upgrade_available"] is True
+
+    manager.model_name = "turbo"
     check = manager.upgrade_check()
     assert check["upgrade_available"] is False
 
@@ -90,7 +95,8 @@ def _install_fake_model(model_dir, name: str) -> None:
         (folder / filename).write_bytes(b"x")
 
 
-def test_installed_model_is_kept_and_upgrade_is_offered(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize("installed", ["tiny", "medium"])
+def test_installed_model_is_kept_and_upgrade_is_offered(tmp_path, monkeypatch, installed) -> None:
     from app import model_manager as mm
     from app.config import Settings
 
@@ -106,20 +112,20 @@ def test_installed_model_is_kept_and_upgrade_is_offered(tmp_path, monkeypatch) -
         local_model=None,
         max_workers=1,
     )
-    monkeypatch.setattr(mm, "total_memory_bytes", lambda: 64 * 1024**3)  # -> medium
-    _install_fake_model(settings.model_dir, "tiny")
+    monkeypatch.setattr(mm, "total_memory_bytes", lambda: 64 * 1024**3)  # -> turbo
+    _install_fake_model(settings.model_dir, installed)
 
     manager = mm.ModelManager(settings)
     # The downloaded model wins at startup (no silent re-download) ...
-    assert manager.model_name == "tiny"
+    assert manager.model_name == installed
     assert manager.status()["ready"] is True
     # ... and the manual check now has something to offer.
     assert manager.upgrade_check() == {
-        "current": "tiny",
-        "recommended": "medium",
+        "current": installed,
+        "recommended": "turbo",
         "upgrade_available": True,
     }
 
     # Nothing installed: the recommendation is used directly.
     fresh = Settings(**{**settings.__dict__, "model_dir": tmp_path / "empty"})
-    assert mm.ModelManager(fresh).model_name == "medium"
+    assert mm.ModelManager(fresh).model_name == "turbo"

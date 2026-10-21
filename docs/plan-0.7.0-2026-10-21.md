@@ -139,10 +139,15 @@
 
 | タスク | 状態 | 残したこと・人がやること |
 |---|---|---|
-| T1 | 未着手 | |
+| T1 | 実装完了（2026-10-21） | 繰り返し抑制、32GB以上の Turbo 選択、導入済み Medium の維持と更新候補、用語集（保存・両API・500文字制限）、新版確認（5秒・24時間キャッシュ・無効化）、日英UI・トレイ・READMEを実装。バージョンは0.6.0を維持。pytest 107件、変更JSの node --check、偽通信での通知表示・トレイ問い合わせ間隔を確認済み。安全側に限定し、正式な数値3桁タグと本リポジトリのリリースURL以外は通知しない。通信の繰り返しを避けるため失敗も24時間キャッシュする。未実施: 実モデルの速度・精度評価とWindows/macOSの実機操作。人が録音と用語集の保存、Turboへの更新、通知リンクとトレイ表示を確認する。 |
 | T2 | 未着手 | |
 | T3 | 未着手 | |
 | T4 | 未着手 | |
 | T5 | 未着手 | |
 | T6 | 未着手 | |
 | T7 | 未着手 | |
+
+T1 の確認元: インストール済み `faster_whisper.utils._MODELS` と `WhisperModel.transcribe`、
+Electron の `electron.d.ts`、[Turbo の配布ファイル](https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo/tree/main)、
+[GitHub の最新リリース API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)。
+Turbo のダウンロード対象5ファイルの合計は 1,621,665,983 bytes（2026-10-21 確認）。

@@ -14,10 +14,14 @@ MODEL_DOWNLOAD_BYTES = {
     "base": 145 * 1024**2,
     "small": 466 * 1024**2,
     "medium": 1_500 * 1024**2,
+    # Verified 2026-10-21: faster_whisper.utils._MODELS["turbo"] resolves to
+    # mobiuslabsgmbh/faster-whisper-large-v3-turbo (now dropbox-dash on HF).
+    # Sum of config, preprocessor_config, model.bin, tokenizer and vocabulary.
+    "turbo": 1_621_665_983,
 }
 
 # Quality order for manual upgrades ("better" = later in this list).
-MODEL_QUALITY_ORDER = ["tiny", "base", "small", "medium"]
+MODEL_QUALITY_ORDER = ["tiny", "base", "small", "medium", "turbo"]
 
 
 class ModelManager:

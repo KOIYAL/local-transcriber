@@ -1,3 +1,8 @@
+const glossaryInput = document.querySelector("#glossary");
+const updateNotice = document.querySelector("#update-notice");
+const updateLink = document.querySelector("#update-link");
+let appUpdate = null;
+
 const form = document.querySelector("#transcription-form");
 const workspace = document.querySelector("#workspace");
 const setupPanel = document.querySelector("#setup-panel");
@@ -35,6 +40,9 @@ const localeButtons = document.querySelectorAll("[data-locale]");
 const translations = {
   en: {
     appName: "Local Transcriber",
+    glossaryLabel: "Glossary (company, people and product names)",
+    glossaryHint: "Optional, up to 500 characters. Used for files and recordings; saved on this device.",
+    appUpdateAvailable: "New version {{version}} is available",
     localProcessing: "Local processing",
     heroTitle: "Turn audio and video<br><span>into text, privately.</span>",
     heroDescription:
@@ -125,6 +133,9 @@ const translations = {
   },
   ja: {
     appName: "文字起こし",
+    glossaryLabel: "用語集（社名・人名・製品名）",
+    glossaryHint: "任意、500文字まで。ファイルと録音に共通で使い、この端末に保存します。",
+    appUpdateAvailable: "新しいバージョン {{version}} があります",
     localProcessing: "ローカル処理",
     heroTitle: "音声と動画を、<br><span>手元で文字に。</span>",
     heroDescription:
@@ -300,8 +311,46 @@ function applyLanguage(locale, persist = true) {
   } else if (currentJob) {
     updateProgress(currentJob);
   }
+  renderAppUpdate();
   setSubmitState(submitState);
 }
+
+function renderAppUpdate() {
+  const visible = appUpdate?.checked && appUpdate?.update_available
+    && /^https:\/\/github\.com\/KOIYAL\/local-transcriber\/releases\/tag\/v?\d+\.\d+\.\d+$/.test(appUpdate.url);
+  updateNotice.hidden = !visible;
+  if (visible) {
+    updateLink.href = appUpdate.url;
+    updateLink.textContent = t("appUpdateAvailable", { version: appUpdate.latest });
+  } else {
+    updateLink.removeAttribute("href");
+    updateLink.textContent = "";
+  }
+}
+
+async function checkAppUpdate() {
+  try {
+    const response = await fetch("/api/update-check");
+    if (!response.ok) return;
+    appUpdate = await response.json();
+    renderAppUpdate();
+  } catch {
+    // Optional: offline checks never interrupt transcription or setup.
+  }
+}
+
+try {
+  glossaryInput.value = (localStorage.getItem("local-transcriber-glossary") || "").slice(0, 500);
+} catch {
+  // The glossary remains usable when persistent storage is unavailable.
+}
+glossaryInput.addEventListener("input", () => {
+  try {
+    localStorage.setItem("local-transcriber-glossary", glossaryInput.value);
+  } catch {
+    // Keep the current session's value.
+  }
+});
 
 function showToast(message) {
   toast.textContent = message;
@@ -616,6 +665,7 @@ async function startSummarize() {
 // Minimal bridge for recorder.js: a recording that just stopped joins the
 // same progress/result pipeline as an uploaded file.
 window.LT = {
+  getGlossary: () => glossaryInput.value,
   getLocale: () => currentLocale,
   showToast,
   trackJob: async (job) => {
@@ -708,6 +758,7 @@ form.addEventListener("submit", async (event) => {
   const formData = new FormData(form);
   formData.set("file", currentFile);
   formData.set("vad_filter", "true");
+  formData.set("glossary", glossaryInput.value);
 
   try {
     const response = await fetch("/api/jobs", {
@@ -748,3 +799,5 @@ loadConfig()
     setupMessage.textContent = error.message;
     showToast(error.message);
   });
+
+checkAppUpdate();

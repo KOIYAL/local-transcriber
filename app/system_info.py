@@ -41,4 +41,4 @@ def select_model_for_memory(memory_bytes: int) -> str:
         return "base"
     if memory_gib < 32:
         return "small"
-    return "medium"
+    return "turbo"

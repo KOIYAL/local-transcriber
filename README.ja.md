@@ -90,10 +90,11 @@ After the first setup, transcription can run offline.
 | 8GB未満 | Tiny |
 | 8GB以上 | Base |
 | 16GB以上 | Small |
-| 32GB以上 | Medium |
+| 32GB以上 | Turbo（large-v3-turbo、約1.62GB） |
 
 モデルはユーザーごとのアプリデータ領域に保存されます。アプリを更新しても、
-同じモデルを再ダウンロードする必要はありません。
+同じモデルを再ダウンロードする必要はありません。導入済みの Medium もそのまま使えます。
+32GB以上の端末では、設定のモデル確認ボタンから Turbo への更新を選べます。
 
 ## アプリアイコン
 
@@ -196,6 +197,14 @@ $env:WHISPER_LOCAL_MODEL = "C:\models\faster-whisper-small"
 
 設定後はモデル一覧に `Local` が表示されます。
 
+## 用語集（オプション）
+
+「用語集（社名・人名・製品名）」に、文字起こしで使いたい表記を入力できます。
+ファイルと録音に共通で使い、前後の空白を除いた先頭500文字をモデルへ渡します。
+空欄なら従来どおりです。入力内容は端末内の localStorage に保存され、次回も使えます。
+不要になった用語は入力欄から消してください。Whisper のプロンプトには224トークンの
+上限があるため、重要な名前に絞って短く書くと扱いやすくなります。
+
 ## 要約機能（オプション）
 
 完了した文字起こしをローカルLLMで要約できます（結果画面の「要約する」ボタン）。
@@ -256,6 +265,7 @@ PowerShellやOSの環境変数として設定してください。
 
 | 変数 | デフォルト | 説明 |
 | --- | --- | --- |
+| `LT_UPDATE_CHECK` | `on` | 新版の確認。`off` / `0` / `false` / `no` で通信を止める |
 | `MAX_UPLOAD_MB` | `2048` | 1ファイルの最大サイズ |
 | `WHISPER_DEVICE` | `auto` | `auto` / `cpu` / `cuda` |
 | `WHISPER_COMPUTE_TYPE` | `auto` | CPUは`int8`、CUDAは`float16`を自動選択 |
@@ -270,6 +280,16 @@ PowerShellやOSの環境変数として設定してください。
 | `LT_APPLE_AI_HELPER` | 空 | Apple Intelligence ブリッジのパス（同梱位置以外の場合） |
 
 ## データの扱い
+
+- 音声・用語集・文字起こし・要約を外部に送信しません。モデルの初回取得や、利用者が
+  選んだモデルの更新ではダウンロードが発生します。
+- 新版の確認では GitHub API の
+  `https://api.github.com/repos/KOIYAL/local-transcriber/releases/latest` へ1回だけ
+  GET リクエストを送ります。音声や本文は含みません。結果は失敗時も含めて
+  `data_dir/update-check.json` に24時間保存します。失敗時は通知を出しません。
+  `LT_UPDATE_CHECK=off`（`0` / `false` / `no` も可）でこの通信を止められます。
+  新版がある場合は画面上部とデスクトップのトレイにリンクが出ます。
+  トレイからバックエンドへの問い合わせは1時間に1回で、24時間以内はキャッシュを使います。
 
 - アップロードファイルと録音ファイルは `data/uploads` に一時保存します。
 - デフォルトでは文字起こしが成功したときだけ元ファイルを削除します。失敗したときと
@@ -394,6 +414,7 @@ Mac App Store版はApp Sandbox、ファイルアクセス権限、同梱バッ�
 ## API
 
 - `GET /api/health`: 稼働確認
+- `GET /api/update-check`: 新版の確認（無効・失敗時は `checked: false`）
 - `GET /api/config`: アップロード設定と初回準備状態
 - `GET /api/setup`: 自動モデル準備の開始・状態取得
 - `POST /api/jobs`: ファイルをアップロードしてジョブ作成

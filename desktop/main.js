@@ -24,6 +24,8 @@ let trayTimer = null;
 let trayState = "idle"; // idle | recording | paused | transcribing | error
 let latestJob = null;
 let latestJobKey = "";
+let appUpdate = null;
+let nextUpdateCheckAt = 0;
 let quitConfirmed = false;
 let settings = { exportDirectory: null };
 
@@ -63,6 +65,7 @@ function localizedMessage(ja, en) {
 }
 
 const TRAY_TEXT = {
+  newVersion: ["新しいバージョン ", "New version "],
   showWindow: ["ウィンドウを表示", "Show window"],
   startRecording: ["録音を開始", "Start recording"],
   pauseRecording: ["録音を一時停止", "Pause recording"],
@@ -393,6 +396,13 @@ function rebuildTrayMenu() {
       click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }),
     });
   }
+  if (appUpdate) {
+    const release = appUpdate;
+    items.push({
+      label: `${t("newVersion")}${release.latest}`,
+      click: () => shell.openExternal(release.url),
+    });
+  }
   items.push({ type: "separator" }, { label: t("quit"), click: () => app.quit() });
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
@@ -416,7 +426,25 @@ function applyTrayState(nextState, elapsedSeconds) {
   }
 }
 
+async function pollAppUpdate() {
+  if (Date.now() < nextUpdateCheckAt) return;
+  // Set before awaiting to prevent overlapping one-second polls.
+  nextUpdateCheckAt = Date.now() + 60 * 60 * 1000;
+  try {
+    const response = await fetch(`${backendUrl}/api/update-check`);
+    if (!response.ok) return;
+    const result = await response.json();
+    appUpdate = result.checked && result.update_available
+      && /^https:\/\/github\.com\/KOIYAL\/local-transcriber\/releases\/tag\/v?\d+\.\d+\.\d+$/.test(result.url)
+      ? result : null;
+    rebuildTrayMenu();
+  } catch {
+    // Optional: no error dialog or tray error state for an update check.
+  }
+}
+
 async function pollBackendState() {
+  void pollAppUpdate();
   let nextState = "idle";
   let elapsed = 0;
   try {

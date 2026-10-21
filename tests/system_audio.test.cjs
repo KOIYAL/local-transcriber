@@ -174,7 +174,7 @@ function recorderHarness(options = {}) {
   const window = Object.assign(new Target(), {
     AudioContext, MediaRecorder,
     localStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) },
-    LT: { getLocale: () => locale, showToast: (text) => toasts.push(text), getGlossary: () => "Example", trackJob: async () => {} },
+    LT: { getLocale: () => locale, showToast: (text) => toasts.push(text), getGlossary: () => "Example", getDiarize: () => Boolean(options.diarize), trackJob: async () => {} },
     setInterval: (fn, ms) => { timers.set(ms, fn); return ms; },
     clearInterval: (id) => timers.delete(id), confirm: () => true,
   });
@@ -217,6 +217,16 @@ test("default remains microphone-only; unsupported environments hide saved opt-i
     assert.equal(h.recorders[0].stream, h.microphone);
     await h.click("#record-toggle");
     assert.equal(h.microphone.getTracks()[0].readyState, "ended");
+  }
+});
+
+test("recording stop forwards the optional speaker separation choice", async () => {
+  for (const diarize of [false, true]) {
+    const h = recorderHarness({ diarize });
+    await h.click("#record-toggle");
+    await h.click("#record-toggle");
+    const request = h.requests.find(([url]) => url.endsWith("/stop"));
+    assert.equal(request[1].body.get("diarize"), String(diarize));
   }
 });
 

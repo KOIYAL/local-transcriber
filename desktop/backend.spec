@@ -23,6 +23,11 @@ hiddenimports = [
     "tokenizers",
 ]
 
+# Optional CPU speaker diarization, including the split core package's libraries.
+if importlib.util.find_spec("sherpa_onnx") is not None:
+    binaries += collect_dynamic_libs("sherpa_onnx")
+    hiddenimports += ["sherpa_onnx", "sherpa_onnx.lib._sherpa_onnx"]
+
 # Optional summary feature: bundle llama-cpp-python (and its shared
 # libraries) when it is installed in the build environment.
 if importlib.util.find_spec("llama_cpp") is not None:

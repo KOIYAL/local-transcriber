@@ -109,6 +109,7 @@ const ACTIVE_JOB_STATUSES = new Set([
   "queued",
   "loading_model",
   "transcribing",
+  "diarizing",
   "finalizing",
 ]);
 

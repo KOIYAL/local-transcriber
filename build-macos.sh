@@ -88,7 +88,7 @@ case "$(uname -m)" in
 esac
 
 echo "[1/5] Installing Python build dependencies..."
-"$PYTHON" -m pip install --disable-pip-version-check -e ".[desktop,summary]"
+"$PYTHON" -m pip install --disable-pip-version-check -e ".[desktop,summary,diarize]"
 
 # Summary engines (both optional; the app hides the feature when absent):
 # - Apple Intelligence bridge, when the SDK is new enough to build it

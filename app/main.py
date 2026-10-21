@@ -26,6 +26,7 @@ from app.config import (
 from app.apple_intelligence import AppleIntelligenceEngine
 from app.capture import RecordingError, RecordingManager
 from app.discord_presence import DiscordPresence, build_activity
+from app.diarizer import Diarizer
 from app.jobs import JobManager
 from app.llm_manager import LlmManager
 from app.model_manager import ModelManager
@@ -48,7 +49,8 @@ async def lifespan(app: FastAPI):
         directory.mkdir(parents=True, exist_ok=True)
     app.state.update_checker = UpdateChecker(SETTINGS.data_dir)
     app.state.models = ModelManager(SETTINGS)
-    app.state.jobs = JobManager(SETTINGS)
+    app.state.diarizer = Diarizer(SETTINGS.model_dir)
+    app.state.jobs = JobManager(SETTINGS, diarizer=app.state.diarizer)
     app.state.recorder = RecordingManager(
         SETTINGS.upload_dir,
         submit_job=app.state.jobs.submit,
@@ -218,7 +220,25 @@ async def config(request: Request) -> dict:
         "allowed_extensions": sorted(ALLOWED_EXTENSIONS),
         "setup": setup,
         "summary": summary_status(request),
+        "diarize": request.app.state.diarizer.status(),
     }
+
+
+@app.get("/api/diarize/setup")
+async def diarize_setup(request: Request) -> dict:
+    return request.app.state.diarizer.status()
+
+
+@app.post("/api/diarize/setup", status_code=202)
+async def start_diarize_setup(request: Request) -> dict:
+    # Unlike automatic Whisper setup, this download requires an explicit opt-in.
+    request.app.state.diarizer.start()
+    return request.app.state.diarizer.status()
+
+
+def _check_diarize(request: Request, enabled: bool) -> None:
+    if enabled and not request.app.state.diarizer.status()["ready"]:
+        raise HTTPException(status_code=409, detail=error_detail("diarize_setup_incomplete"))
 
 
 def _start_summary_setup(request: Request) -> dict:
@@ -285,7 +305,9 @@ async def create_job(
     file: Annotated[UploadFile, File(...)],
     vad_filter: Annotated[bool, Form()] = True,
     glossary: Annotated[str, Form()] = "",
+    diarize: Annotated[bool, Form()] = False,
 ) -> dict:
+    _check_diarize(request, diarize)
     original_name = Path(file.filename or "upload").name
     extension = Path(original_name).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -335,6 +357,7 @@ async def create_job(
         "vad_filter": vad_filter,
         "beam_size": 5,
         "initial_prompt": glossary.strip()[:500],
+        "diarize": diarize,
     }
     job = job_manager(request).submit(original_name, stored_path, options)
     return job.as_dict()
@@ -403,7 +426,10 @@ async def stop_recording(
     request: Request,
     vad_filter: Annotated[bool, Form()] = True,
     glossary: Annotated[str, Form()] = "",
+    diarize: Annotated[bool, Form()] = False,
 ) -> dict:
+    # Always accept saved recording chunks. If optional models became unavailable,
+    # JobManager keeps the ordinary transcript and source instead of rejecting stop.
     setup_state = model_manager(request).status()
     options = {
         "model": setup_state["model"],
@@ -412,6 +438,7 @@ async def stop_recording(
         "vad_filter": vad_filter,
         "beam_size": 5,
         "initial_prompt": glossary.strip()[:500],
+        "diarize": diarize,
     }
     try:
         job = recording_manager(request).stop(session_id, options)

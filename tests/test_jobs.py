@@ -124,3 +124,47 @@ def test_list_payload_omits_transcript_text() -> None:
     brief = job.as_dict(include_result=False)
     assert "result" not in brief
     assert brief["summary"] == {"status": "completed", "text": None, "error": None}
+
+
+@pytest.mark.parametrize("enabled,fail", [(False, False), (True, False), (True, True)])
+def test_optional_diarization_runs_before_exports_and_preserves_fallback(manager, tmp_path, enabled, fail):
+    import json
+    from types import SimpleNamespace
+
+    calls = []
+    manager.engine.transcribe = lambda *args: {
+        "text": "hello world", "segments": [
+            {"start": 0, "end": 1, "text": "hello"},
+            {"start": 1, "end": 2, "text": "world"},
+        ],
+    }
+
+    def separate(path, progress):
+        calls.append(path)
+        job = manager.list_recent()[0]
+        assert job.status == "diarizing"
+        assert not manager.delete(job.id)
+        progress(0.5)
+        assert job.progress == pytest.approx(0.915)
+        if fail:
+            raise RuntimeError("native inference failed")
+        return [{"start": 0, "end": 1, "speaker": 9}, {"start": 1, "end": 2, "speaker": 4}]
+
+    manager.diarizer = SimpleNamespace(diarize=separate)
+    path = media(tmp_path)
+    job = manager.submit("meeting.wav", path, {"model": "tiny", "diarize": enabled})
+    wait_until(lambda: job.status == "completed")
+    if fail:
+        assert path.exists()
+        assert job.result["diarization_failed"] is True
+        assert job.result["text"] == "hello world"
+    else:
+        wait_until(lambda: not path.exists())
+    if enabled and not fail:
+        assert job.result["text"] == "話者1: hello\n話者2: world"
+        payload = json.loads(job.exports["json"].read_text(encoding="utf-8"))
+        assert payload["segments"][1]["speaker"] == "話者2"
+        assert job.exports["txt"].read_text(encoding="utf-8") == "話者1: hello\n話者2: world\n"
+    else:
+        assert all("speaker" not in s for s in job.result["segments"])
+    assert len(calls) == int(enabled)

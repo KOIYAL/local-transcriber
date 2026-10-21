@@ -469,6 +469,7 @@ if (recorderRoot) {
   const transcriptionForm = () => {
     const data = new FormData();
     data.set("glossary", window.LT?.getGlossary() || "");
+    data.set("diarize", String(window.LT?.getDiarize?.() || false));
     return data;
   };
 

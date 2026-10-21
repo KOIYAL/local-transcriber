@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.config import Settings
-from app.exporters import write_exports
+from app.exporters import to_txt, write_exports
+from app.diarizer import assign_speakers
 from app.transcriber import TranscriptionEngine
 
 
@@ -68,12 +69,13 @@ class JobRecord:
 # Older ones are forgotten; their files under data/outputs stay on disk.
 MAX_JOBS = 50
 
-ACTIVE_STATUSES = {"queued", "loading_model", "transcribing", "finalizing"}
+ACTIVE_STATUSES = {"queued", "loading_model", "transcribing", "diarizing", "finalizing"}
 
 
 class JobManager:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, diarizer=None) -> None:
         self.settings = settings
+        self.diarizer = diarizer
         self.engine = TranscriptionEngine(settings)
         self.executor = ThreadPoolExecutor(
             max_workers=settings.max_workers,
@@ -173,6 +175,23 @@ class JobManager:
                     message,
                 ),
             )
+            if job.options.get("diarize"):
+                self._update(job_id, "diarizing", 0.90, "Separating speakers.")
+                try:
+                    if self.diarizer is None:
+                        raise RuntimeError("Speaker diarization is unavailable")
+                    turns = self.diarizer.diarize(
+                        job.media_path,
+                        lambda fraction: self._update(
+                            job_id, "diarizing", 0.90 + 0.03 * max(0.0, min(1.0, fraction)),
+                            "Separating speakers.",
+                        ),
+                    )
+                    result["segments"] = assign_speakers(result["segments"], turns)
+                    result["text"] = to_txt(result["segments"]).strip()
+                except Exception:
+                    # Preserve useful transcription and the source on optional-feature failure.
+                    result["diarization_failed"] = True
             self._update(job_id, "finalizing", 0.94, "Creating output files.")
             metadata = {
                 key: value
@@ -200,7 +219,7 @@ class JobManager:
             # only copy of the meeting, and a transient error (GPU runtime,
             # disk full) must not destroy it. DELETE /api/jobs/{id} or the
             # user removes it.
-            if not self.settings.keep_uploads:
+            if not self.settings.keep_uploads and not result.get("diarization_failed"):
                 job.media_path.unlink(missing_ok=True)
         except Exception as exc:
             self._update(job_id, "failed", 1.0, "Transcription failed.")

@@ -76,6 +76,16 @@
           <p id="glossary-hint" data-i18n="glossaryHint">Optional, up to 500 characters. Used for files and recordings; saved on this device.</p>
         </div>
 
+        <div id="diarize-panel" class="glossary-field" hidden>
+          <label><input id="diarize" type="checkbox">
+            <span data-i18n="diarizeLabel">Separate speakers (experimental; takes extra time)</span>
+          </label>
+          <p data-i18n="diarizeHint">Applies to files and recordings. First use downloads about 47 MB. Speakers are numbered, not identified by name.</p>
+          <p id="diarize-message" role="status" hidden></p>
+          <progress id="diarize-progress" max="1" value="0" hidden></progress>
+          <button id="diarize-retry" class="secondary-button" type="button" data-i18n="retry" hidden>Try again</button>
+        </div>
+
         <form id="transcription-form">
           <label id="drop-zone" class="drop-zone" for="file-input">
             <input id="file-input" name="file" type="file"

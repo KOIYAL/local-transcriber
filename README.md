@@ -106,6 +106,27 @@ indicates active capture. Stopping sends the audio into the usual transcription 
 Windows/macOS hardware and packaged permission checks remain manual and have
 not been run here. See the [verification checklist (Japanese)](docs/system-audio-2026-10-21.md).
 
+## Speaker separation (experimental, optional)
+
+This feature is under development. For source runs, install
+`.venv/bin/pip install -e ".[diarize]"` and restart. The checkbox appears only
+when sherpa-onnx loads successfully and the computer has at least 8 GiB of RAM.
+It is off by default, applies to both files and recordings, and resets on page reload.
+
+Selecting it for the first time downloads about 46.6 MB of models from official
+GitHub releases into `WHISPER_MODEL_DIR/diarization/`. Setup shows progress and
+offers retry on failure. Jobs started during setup run without speaker labels.
+Once ready, CPU inference works offline; no audio or text leaves the computer.
+No pyannote Python package, torch or Hugging Face token is needed.
+
+Results, copied text and exports include numbered labels such as `話者1` and
+`話者2`. These do not identify people by name. Overlapping speech and short turns
+can be misassigned; processing takes extra time and memory. If separation fails,
+the ordinary transcript remains available with a notice, and the source audio
+is retained in `data/uploads/`. Windows/macOS packaged execution and accuracy
+on real meetings still need manual checks. See the
+[implementation and verification notes (Japanese)](docs/diarization-2026-10-21.md).
+
 ## Environment variables
 
 | Variable | Default | Description |

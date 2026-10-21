@@ -19,7 +19,7 @@ if not exist "vendor\modelshelf.exe" (
 )
 
 echo [1/5] Installing build dependencies...
-"%PYTHON%" -m pip install --disable-pip-version-check -e ".[desktop,summary]" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+"%PYTHON%" -m pip install --disable-pip-version-check -e ".[desktop,summary,diarize]" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 if errorlevel 1 exit /b 1
 
 echo [2/5] Building the bundled transcription backend...

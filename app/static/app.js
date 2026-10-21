@@ -1,4 +1,12 @@
 const glossaryInput = document.querySelector("#glossary");
+const diarizeInput = document.querySelector("#diarize");
+const diarizePanel = document.querySelector("#diarize-panel");
+const diarizeMessage = document.querySelector("#diarize-message");
+const diarizeProgress = document.querySelector("#diarize-progress");
+const diarizeRetry = document.querySelector("#diarize-retry");
+let diarizeSetup = null;
+let diarizeTimer = null;
+let diarizeRequested = false;
 const updateNotice = document.querySelector("#update-notice");
 const updateLink = document.querySelector("#update-link");
 let appUpdate = null;
@@ -39,6 +47,14 @@ const localeButtons = document.querySelectorAll("[data-locale]");
 
 const translations = {
   en: {
+    diarizeLabel: "Separate speakers (experimental; takes extra time)",
+    diarizeHint: "Applies to files and recordings. First use downloads about 47 MB. Speakers are numbered, not identified by name.",
+    diarizeDownloading: "Preparing speaker models: {{percent}}%. Transcriptions started now will not have speaker labels.",
+    diarizeReady: "Speaker models are ready. Enable the checkbox to use them.",
+    diarizeSetupFailed: "Could not prepare speaker models. You can retry or transcribe without speaker labels.",
+    diarizeFailed: "Speaker separation failed. The transcript and source audio have been kept without speaker labels.",
+    statusDiarizing: "Separating speakers",
+    errorDiarizeSetupIncomplete: "Speaker models are not ready. Turn off speaker separation or finish setup.",
     appName: "Local Transcriber",
     glossaryLabel: "Glossary (company, people and product names)",
     glossaryHint: "Optional, up to 500 characters. Used for files and recordings; saved on this device.",
@@ -132,6 +148,14 @@ const translations = {
     errorJobBusy: "The job is still processing or could not be found.",
   },
   ja: {
+    diarizeLabel: "話者を分ける（試験的・時間がかかります）",
+    diarizeHint: "ファイルと録音に共通で使います。初回に約47MBを取得します。話者は番号で区別し、名前は判定しません。",
+    diarizeDownloading: "話者モデルを準備中: {{percent}}%。今開始する文字起こしには話者ラベルが付きません。",
+    diarizeReady: "話者モデルの準備ができました。使うときはチェックを入れてください。",
+    diarizeSetupFailed: "話者モデルを準備できませんでした。再試行するか、話者ラベルなしで文字起こしできます。",
+    diarizeFailed: "話者分離に失敗しました。話者ラベルなしの文字起こし結果と元音声を残しました。",
+    statusDiarizing: "話者を分けています",
+    errorDiarizeSetupIncomplete: "話者モデルの準備が完了していません。話者分離をOFFにするか、準備完了をお待ちください。",
     appName: "文字起こし",
     glossaryLabel: "用語集（社名・人名・製品名）",
     glossaryHint: "任意、500文字まで。ファイルと録音に共通で使い、この端末に保存します。",
@@ -230,6 +254,7 @@ const statusTitleKeys = {
   queued: "statusQueued",
   loading_model: "statusLoadingModel",
   transcribing: "statusTranscribing",
+  diarizing: "statusDiarizing",
   finalizing: "statusFinalizing",
   completed: "statusCompleted",
   failed: "statusFailed",
@@ -245,6 +270,7 @@ const errorCodeKeys = {
   output_missing: "errorOutputMissing",
   job_busy: "errorJobBusy",
   summary_setup_incomplete: "errorSummarySetupIncomplete",
+  diarize_setup_incomplete: "errorDiarizeSetupIncomplete",
 };
 
 let config = null;
@@ -312,6 +338,7 @@ function applyLanguage(locale, persist = true) {
     updateProgress(currentJob);
   }
   renderAppUpdate();
+  if (diarizeSetup) renderDiarizeSetup(diarizeSetup);
   setSubmitState(submitState);
 }
 
@@ -411,7 +438,67 @@ async function loadConfig() {
   if (!response.ok) throw new Error(t("configFailed"));
   config = await response.json();
   updateLimitLabel();
+  renderDiarizeSetup(config.diarize);
+  if (diarizeSetup?.status === "downloading") pollDiarizeSetup();
 }
+
+function getDiarize() {
+  return Boolean(diarizeInput.checked && diarizeSetup?.available && diarizeSetup?.ready);
+}
+
+function renderDiarizeSetup(setup) {
+  diarizeSetup = setup;
+  diarizePanel.hidden = !setup?.available;
+  if (!setup?.available) {
+    diarizeInput.checked = false;
+    return;
+  }
+  const downloading = setup.status === "downloading";
+  diarizeInput.disabled = downloading;
+  diarizeProgress.hidden = !downloading;
+  diarizeProgress.value = setup.progress || 0;
+  diarizeRetry.hidden = setup.status !== "failed";
+  diarizeMessage.hidden = setup.status === "not_started";
+  diarizeMessage.textContent = t(downloading ? "diarizeDownloading"
+    : setup.ready ? "diarizeReady" : "diarizeSetupFailed", {
+      percent: Math.round((setup.progress || 0) * 100),
+    });
+}
+
+async function pollDiarizeSetup(start = false) {
+  window.clearTimeout(diarizeTimer);
+  try {
+    const response = await fetch("/api/diarize/setup", { method: start ? "POST" : "GET" });
+    if (!response.ok) throw new Error(await readError(response));
+    const setup = await response.json();
+    renderDiarizeSetup(setup);
+    if (setup.ready) {
+      diarizeInput.checked = diarizeRequested;
+      diarizeRequested = false;
+    } else if (setup.status === "downloading") {
+      diarizeTimer = window.setTimeout(() => pollDiarizeSetup(), 900);
+    } else {
+      diarizeRequested = false;
+      diarizeInput.checked = false;
+    }
+  } catch {
+    diarizeRequested = false;
+    diarizeInput.checked = false;
+    renderDiarizeSetup({ ...diarizeSetup, ready: false, status: "failed" });
+  }
+}
+
+function startDiarizeSetup() {
+  diarizeRequested = true;
+  diarizeInput.checked = false;
+  renderDiarizeSetup({ ...diarizeSetup, ready: false, status: "downloading", progress: 0 });
+  pollDiarizeSetup(true);
+}
+
+diarizeInput.addEventListener("change", () => {
+  if (diarizeInput.checked && !diarizeSetup?.ready) startDiarizeSetup();
+});
+diarizeRetry.addEventListener("click", startDiarizeSetup);
 
 function renderSetup(setup) {
   currentSetup = setup;
@@ -484,6 +571,7 @@ function jobMessage(job) {
     return t("transcribingProgress", { percent });
   }
   if (job.status === "finalizing") return t("creatingOutput");
+  if (job.status === "diarizing") return t("statusDiarizing");
   if (job.status === "completed") return t("transcriptionComplete");
   if (job.status === "failed") return t("transcriptionFailed");
   return t("waitingForProcessing");
@@ -507,6 +595,7 @@ function updateResultMeta(job) {
   const device = result.device ? ` / ${result.device.toUpperCase()}` : "";
   resultMeta.textContent =
     `${job.filename} / ${formatTime(result.duration)} / ${result.language}${device}${probability}`;
+  if (result.diarization_failed) resultMeta.textContent += ` / ${t("diarizeFailed")}`;
 }
 
 function renderResult(job) {
@@ -525,7 +614,7 @@ function renderResult(job) {
       time.textContent = `${formatTime(segment.start)} - ${formatTime(segment.end)}`;
 
       const text = document.createElement("p");
-      text.textContent = segment.text;
+      text.textContent = segment.speaker ? `${segment.speaker}: ${segment.text}` : segment.text;
       row.append(time, text);
       return row;
     }),
@@ -665,6 +754,7 @@ async function startSummarize() {
 // Minimal bridge for recorder.js: a recording that just stopped joins the
 // same progress/result pipeline as an uploaded file.
 window.LT = {
+  getDiarize,
   getGlossary: () => glossaryInput.value,
   getLocale: () => currentLocale,
   showToast,
@@ -759,6 +849,7 @@ form.addEventListener("submit", async (event) => {
   formData.set("file", currentFile);
   formData.set("vad_filter", "true");
   formData.set("glossary", glossaryInput.value);
+  formData.set("diarize", String(getDiarize()));
 
   try {
     const response = await fetch("/api/jobs", {

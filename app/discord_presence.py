@@ -77,7 +77,7 @@ def build_activity(jobs: Any) -> dict[str, Any]:
     try:
         if jobs is not None:
             recent = jobs.list_recent(20)
-            active_statuses = {"queued", "loading_model", "transcribing", "finalizing"}
+            active_statuses = {"queued", "loading_model", "transcribing", "diarizing", "finalizing"}
             for job in recent:
                 if getattr(job, "status", "") in active_statuses:
                     active = True

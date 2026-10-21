@@ -13,25 +13,36 @@ def format_timestamp(seconds: float, separator: str = ",") -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}{separator}{millis:03d}"
 
 
+def labeled_text(segments: list[dict[str, Any]]) -> list[str]:
+    lines = []
+    previous = None
+    for segment in segments:
+        speaker = segment.get("speaker")
+        prefix = f"{speaker}: " if speaker and speaker != previous else ""
+        lines.append(prefix + segment["text"].strip())
+        previous = speaker
+    return lines
+
+
 def to_txt(segments: list[dict[str, Any]]) -> str:
-    return "\n".join(segment["text"].strip() for segment in segments).strip() + "\n"
+    return "\n".join(labeled_text(segments)).strip() + "\n"
 
 
 def to_srt(segments: list[dict[str, Any]]) -> str:
     blocks = []
-    for index, segment in enumerate(segments, start=1):
+    for index, (segment, text) in enumerate(zip(segments, labeled_text(segments)), start=1):
         start = format_timestamp(float(segment["start"]))
         end = format_timestamp(float(segment["end"]))
-        blocks.append(f"{index}\n{start} --> {end}\n{segment['text'].strip()}")
+        blocks.append(f"{index}\n{start} --> {end}\n{text}")
     return "\n\n".join(blocks) + "\n"
 
 
 def to_vtt(segments: list[dict[str, Any]]) -> str:
     blocks = ["WEBVTT"]
-    for segment in segments:
+    for segment, text in zip(segments, labeled_text(segments)):
         start = format_timestamp(float(segment["start"]), ".")
         end = format_timestamp(float(segment["end"]), ".")
-        blocks.append(f"{start} --> {end}\n{segment['text'].strip()}")
+        blocks.append(f"{start} --> {end}\n{text}")
     return "\n\n".join(blocks) + "\n"
 
 

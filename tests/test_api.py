@@ -24,3 +24,13 @@ def test_rejects_unsupported_extension() -> None:
         detail = response.json()["detail"]
         assert detail["code"] == "unsupported_extension"
         assert ".mp3" in detail["params"]["allowed"]
+
+
+def test_form_bool_defaults_do_not_depend_on_fastapi_version() -> None:
+    from app.main import form_bool
+
+    assert form_bool(None, default=True) is True
+    assert form_bool("", default=True) is True
+    assert form_bool("false", default=True) is False
+    assert form_bool("0", default=True) is False
+    assert form_bool("true", default=False) is True

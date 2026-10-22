@@ -192,6 +192,18 @@ def summary_status(request: Request) -> dict:
     return status
 
 
+def form_bool(value: str | None, *, default: bool) -> bool:
+    """Parse an optional boolean form field ourselves.
+
+    FastAPI changed how an omitted `bool` Form field is treated (newer
+    versions read it as an unchecked checkbox, i.e. False), so the default
+    must not depend on the framework version.
+    """
+    if value is None or not value.strip():
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def error_detail(code: str, **params: str | int) -> dict:
     return {"code": code, "params": params}
 
@@ -303,7 +315,7 @@ async def list_jobs(request: Request) -> dict:
 async def create_job(
     request: Request,
     file: Annotated[UploadFile, File(...)],
-    vad_filter: Annotated[bool, Form()] = True,
+    vad_filter: Annotated[str | None, Form()] = None,
     glossary: Annotated[str, Form()] = "",
     diarize: Annotated[bool, Form()] = False,
 ) -> dict:
@@ -354,7 +366,7 @@ async def create_job(
         "model": setup_state["model"],
         "language": None,
         "task": "transcribe",
-        "vad_filter": vad_filter,
+        "vad_filter": form_bool(vad_filter, default=True),
         "beam_size": 5,
         "initial_prompt": glossary.strip()[:500],
         "diarize": diarize,
@@ -424,7 +436,7 @@ async def resume_recording(session_id: str, request: Request) -> dict:
 async def stop_recording(
     session_id: str,
     request: Request,
-    vad_filter: Annotated[bool, Form()] = True,
+    vad_filter: Annotated[str | None, Form()] = None,
     glossary: Annotated[str, Form()] = "",
     diarize: Annotated[bool, Form()] = False,
 ) -> dict:
@@ -435,7 +447,7 @@ async def stop_recording(
         "model": setup_state["model"],
         "language": None,
         "task": "transcribe",
-        "vad_filter": vad_filter,
+        "vad_filter": form_bool(vad_filter, default=True),
         "beam_size": 5,
         "initial_prompt": glossary.strip()[:500],
         "diarize": diarize,

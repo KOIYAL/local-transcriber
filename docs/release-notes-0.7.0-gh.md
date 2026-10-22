@@ -1,8 +1,5 @@
 ## 0.7.0 オンライン会議の音声・用語集・話者分離 / Meeting audio, glossary and speaker separation
 
-公開前の原稿です。配布物と実機確認は未完了です。公開担当者は末尾の一覧を実際の添付内容に合わせ、この段落を削除してください。
-Draft: release artifacts and hardware checks are pending. Before publication, match the download list to the attached assets and remove this paragraph.
-
 ### 新機能（日本語）
 
 - **オンライン会議の音声**: PC で再生中の相手の声とマイクを合わせて録音できます。デフォルトは OFF。Windows 10/11 と macOS 14.2以降のパッケージアプリが対象です。ブラウザでは共有機能と共有元によります。取得できなければ理由を表示し、マイク録音を続けます。映像は保存しません。
@@ -51,11 +48,8 @@ Audio, glossary entries, transcripts and summaries stay on the computer. Initial
 
 ### ダウンロード / Downloads
 
-公開時に実際に添付したファイルだけを残してください。サイズ・署名・公証状況は最終ビルドで確認します。
-Before publishing, keep only assets actually attached and verify their sizes and signing/notarization status.
-
 - Windows x64: `LocalTranscriber-0.7.0-win-x64.zip`（展開して `LocalTranscriber.exe` を起動 / extract and run）
-- macOS Apple Silicon: `LocalTranscriber-macOS-arm64.dmg`（アプリ内バージョン0.7.0 / app version 0.7.0）
+- macOS Apple Silicon: `LocalTranscriber-macOS-arm64.dmg`（アプリ内バージョン0.7.0・未署名のテストビルド / app version 0.7.0, unsigned test build）
 - Linux x64: `LocalTranscriber-0.7.0-linux-x64.tar.gz`（テスト配布 / test build）
 
 macOS の PC音声にはマイク・画面収録・システム音声の権限が必要です。Bluetooth 使用時は入出力デバイスや音質が変わることがあります。Linux のトレイには AppIndicator 対応が必要です。話者分離と要約は対応環境だけに表示します。未署名 MSIX は Store 提出用で、一般向けダウンロードには含めません。

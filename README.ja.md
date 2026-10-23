@@ -4,7 +4,7 @@
 
 音声・動画ファイルを `faster-whisper` で文字起こしするWindows / macOSアプリです。
 0.7.0 ではオンライン会議の音声録音、用語集、試験的な話者分離を追加しました。
-Linux x64 向けのテストビルドと、Windows の未署名 MSIX を作る CI も用意しています。
+Linux x64 向けのテストビルドも用意しています。配布はすべて無料で、GitHub Releases だけで行います（Microsoft Store には出しません）。
 [0.7.0 の変更点](docs/release-notes-0.7.0-gh.md)を参照してください。
 0.7.0 の配布物の作成・実機確認・公開はこれから行います。
 推論は端末内で実行され、外部の文字起こしAPIやAPIキーは必要ありません。
@@ -35,8 +35,8 @@ Linux x64 向けのテストビルドと、Windows の未署名 MSIX を作る C
 
 | 環境 | 配布形式・ビルド対象 | PC の再生音声 | ウィンドウを閉じたとき |
 | --- | --- | --- | --- |
-| Windows 10/11 x64 | ポータブル ZIP、Store 提出用 MSIX | 任意で利用 | トレイに常駐 |
-| macOS Apple Silicon | DMG（署名・公証状況は配布時に確認） | macOS 14.2以降のパッケージアプリのみ | トレイに常駐 |
+| Windows 10/11 x64 | ポータブル ZIP | 任意で利用 | トレイに常駐 |
+| macOS Apple Silicon | DMG（未署名。初回だけ上の許可手順が要る） | macOS 14.2以降のパッケージアプリのみ | トレイに常駐 |
 | Ubuntu 22.04以降 x86_64 | tar.gz（テスト配布対象） | Electron では非表示 | 終了（録音・一時停止中は確認） |
 | ブラウザでのソース実行 | Python 3.10以上 | 画面共有 API と OS・共有元による | デスクトップのトレイ機能なし |
 
@@ -79,10 +79,21 @@ After the first setup, transcription can run offline.
 
 ## 一般ユーザー向けmacOSアプリ
 
-Apple Silicon向けのテストビルド（未署名）を
+Apple Silicon向けのビルド（未署名）を
 [GitHub Releases](https://github.com/KOIYAL/local-transcriber/releases/latest)
-で配布しています。未署名のためGatekeeperの警告が出ます。正式版は
-コード署名対応後に公開予定です。
+で配布しています。Apple の署名と公証を付けていないため、初回起動時に
+「壊れているため開けません」または「開発元を確認できません」と表示されます。
+次の手順で 1 回だけ許可すると、以後は普通に起動できます。
+
+1. DMG を開き、`Local Transcriber` を「アプリケーション」フォルダへドラッグする。
+2. アプリをダブルクリックする（警告が出て開けない。これで macOS がアプリを記憶する）。
+3. 「システム設定」→「プライバシーとセキュリティ」を開き、下の方にある
+   「"Local Transcriber" は開発元を確認できないため…」の横の**「このまま開く」**を押す。
+4. もう一度アプリを開き、「開く」を選ぶ。
+
+ターミナルで `xattr -dr com.apple.quarantine "/Applications/Local Transcriber.app"` を
+実行しても同じ結果になります。配布元は GitHub Releases だけです。ほかの場所で
+配られているファイルは使わないでください。
 
 自分でビルドする場合、Mac版はDMGとして生成されます。
 

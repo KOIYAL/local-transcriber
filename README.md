@@ -4,7 +4,8 @@
 or video file, get timestamped text — and a local-LLM summary — without
 uploading your audio or text. No account, no API key, no cloud.
 Version **0.7.0** adds optional online meeting audio, a glossary, experimental
-speaker separation, Linux x64 test builds and unsigned Store MSIX artifacts.
+speaker separation and Linux x64 test builds. Every build is free and
+distributed only through GitHub Releases (no Microsoft Store listing).
 See the [0.7.0 release notes](docs/release-notes-0.7.0-gh.md).
 Release builds, hardware validation and publication are still pending.
 
@@ -52,8 +53,8 @@ Release builds, hardware validation and publication are still pending.
 
 | Environment | Package / build target | Computer audio | Closing the window |
 | --- | --- | --- | --- |
-| Windows 10/11 x64 | Portable ZIP; Store submission MSIX | Optional | Stays in tray |
-| macOS Apple Silicon | DMG; check signing/notarization before distribution | Packaged app on macOS 14.2+ | Stays in tray |
+| Windows 10/11 x64 | Portable ZIP | Optional | Stays in tray |
+| macOS Apple Silicon | DMG, unsigned: allow it once in System Settings > Privacy & Security ("Open Anyway") | Packaged app on macOS 14.2+ | Stays in tray |
 | Ubuntu 22.04+ x86_64 | tar.gz test build | Hidden in Electron | Quits; confirms while recording/paused |
 | Browser, run from source | Python 3.10+ | Depends on screen-sharing API, OS and source | No desktop tray controls |
 

@@ -1,4 +1,9 @@
-# Microsoft Store 申請メモ
+# Microsoft Store 申請メモ（申請しない。記録として保存）
+
+**2026-10-23 本人決定: Microsoft Store には出さない。無料配布（GitHub Releases）のみ。**
+CI の MSIX 作成は Store 用の識別情報が無い限り動かないので、そのままにしてある。
+以下は申請する場合に使うはずだった内容。
+
 
 ## 対象バージョンと商品名
 

@@ -8,6 +8,11 @@ name: Build macOS app
 
 on:
   workflow_dispatch:
+    inputs:
+      compare_release:
+        description: "Also check a published DMG (release tag, e.g. v0.7.0) for comparison"
+        required: false
+        default: ""
   push:
     tags: ["v*"]
 
@@ -87,6 +92,37 @@ jobs:
         env:
           MAC_CODESIGN_IDENTITY: ${{ secrets.MAC_CODESIGN_IDENTITY }}
         run: ./build-macos.sh
+
+      # What a user's Mac sees after downloading: the app inside the DMG must
+      # carry an intact signature. Unsigned builds are ad-hoc signed, so
+      # Gatekeeper rejects them as "unidentified developer" (allowed via
+      # System Settings), never as "damaged".
+      - name: Check the DMG as macOS sees it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPARE_RELEASE: ${{ inputs.compare_release }}
+        run: |
+          set -uo pipefail
+          check_dmg() {
+            local dmg="$1" mnt app
+            mnt="$(mktemp -d)"
+            hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" >/dev/null
+            app="$(mktemp -d)/LocalTranscriber.app"
+            ditto "$mnt/LocalTranscriber.app" "$app"
+            hdiutil detach "$mnt" >/dev/null
+            xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");Safari;" "$app"
+            echo "== $dmg"
+            codesign -dv "$app" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" || true
+            codesign --verify --deep --strict --verbose=2 "$app"; local verify=$?
+            spctl --assess --type execute -vv "$app" 2>&1 || true
+            return $verify
+          }
+          check_dmg dist/LocalTranscriber-macOS-*.dmg || { echo "::error::The built app's signature is broken (macOS would call it damaged)"; exit 1; }
+          if [ -n "$COMPARE_RELEASE" ]; then
+            gh release download "$COMPARE_RELEASE" --repo "$GITHUB_REPOSITORY" \
+              --pattern 'LocalTranscriber-macOS-*.dmg' --dir "$RUNNER_TEMP/published"
+            check_dmg "$RUNNER_TEMP"/published/*.dmg || echo "::warning::Published $COMPARE_RELEASE DMG fails signature verification"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

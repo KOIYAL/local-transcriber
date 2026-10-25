@@ -25,7 +25,9 @@ hide_extensions = []
 
 # A @2x file next to the background is combined automatically for Retina.
 background = defines["background"]  # noqa: F821
-window_rect = ((200, 120), (660, 460))
+# The height includes the title bar (about 32pt); the content area matches the
+# 660x460 background. Without it the bottom row is cut off and scrolls.
+window_rect = ((200, 120), (660, 492))
 default_view = "icon-view"
 show_status_bar = False
 show_tab_view = False

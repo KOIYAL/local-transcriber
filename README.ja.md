@@ -5,7 +5,7 @@
 音声・動画ファイルを `faster-whisper` で文字起こしするWindows / macOSアプリです。
 0.7.0 ではオンライン会議の音声録音、用語集、試験的な話者分離を追加しました。
 Linux x64 向けのテストビルドも用意しています。配布はすべて無料で、GitHub Releases だけで行います（Microsoft Store には出しません）。
-[0.7.0 の変更点](docs/release-notes-0.7.0-gh.md)を参照してください。
+[0.7.0 の変更点](docs/release-notes-0.7.0-gh.md)を参照してください。0.7.1 は文字起こしと Mac 版の不具合の修正版です（[0.7.1 の変更点](docs/release-notes-0.7.1-gh.md)）。
 0.7.0 の配布物の作成・実機確認・公開はこれから行います。
 推論は端末内で実行され、外部の文字起こしAPIやAPIキーは必要ありません。
 
@@ -552,7 +552,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 modelshelf は公式リリースの URL と SHA-256 を固定して取得し、実行できる場合に同梱します。
 PyInstaller でバックエンドを作り、Electron と案内をまとめて
 `dist/LocalTranscriber-<version>-linux-x64.tar.gz` を生成します。
-バージョンは `desktop/package.json` から読みます（現在は 0.7.0）。
+バージョンは `desktop/package.json` から読みます（現在は 0.7.1）。
 GitHub Actions は `workflow_dispatch` と `v*` タグで同じスクリプトを実行し、
 テストが通った後に artifact を保存します。GitHub Release への公開は行いません。
 

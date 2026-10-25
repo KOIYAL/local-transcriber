@@ -45,8 +45,8 @@ def render(scale: int, bold: str, regular: str) -> Image.Image:
     d.line([(40 * s, 290 * s), ((W - 40) * s, 290 * s)], fill=(224, 224, 224), width=1 * s)
     notes = [
         "初めて開くときに警告が出て開けなかったら",
-        "システム設定 → プライバシーとセキュリティ →「開く」→「このまま開く」",
-        "詳しい手順は左の START_HERE_MAC.txt にあります",
+        "システム設定 → プライバシーとセキュリティ → 一番下までスクロール",
+        "「セキュリティ」の「開く」→「このまま開く」→ Mac のパスワード",
     ]
     for i, line in enumerate(notes):
         d.text((NOTE_X * s, (338 + i * 22) * s), line, font=font(bold, 13 * s) if i == 0 else f_note,

@@ -150,8 +150,8 @@ def test_concurrent_checks_share_one_request(tmp_path):
 
 def test_api_uses_actual_app_version(tmp_path):
     with TestClient(app, base_url="http://127.0.0.1") as client:
-        app.state.update_checker = uc.UpdateChecker(tmp_path, release)
+        app.state.update_checker = uc.UpdateChecker(tmp_path, lambda: release("v0.7.2"))
         response = client.get("/api/update-check")
         assert response.status_code == 200
-        assert response.json()["current"] == app.version == "0.7.0"
+        assert response.json()["current"] == app.version == "0.7.1"
         assert response.json()["update_available"]

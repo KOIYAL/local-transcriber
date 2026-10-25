@@ -82,17 +82,19 @@ After the first setup, transcription can run offline.
 Apple Silicon向けのビルド（未署名）を
 [GitHub Releases](https://github.com/KOIYAL/local-transcriber/releases/latest)
 で配布しています。Apple の署名と公証を付けていないため、初回起動時に
-「壊れているため開けません」または「開発元を確認できません」と表示されます。
+「開発元を確認できません」または「Apple は検証できませんでした」と表示されます。
 次の手順で 1 回だけ許可すると、以後は普通に起動できます。
 
-1. DMG を開き、`Local Transcriber` を「アプリケーション」フォルダへドラッグする。
+1. DMG を開き、表示された画面の矢印に沿って `LocalTranscriber` を
+   「Applications」フォルダへドラッグする。
 2. アプリをダブルクリックする（警告が出て開けない。これで macOS がアプリを記憶する）。
 3. 「システム設定」→「プライバシーとセキュリティ」を開き、下の方にある
-   「"Local Transcriber" は開発元を確認できないため…」の横の**「このまま開く」**を押す。
+   「"LocalTranscriber" は…」の横の**「このまま開く」**を押す。
 4. もう一度アプリを開き、「開く」を選ぶ。
 
-ターミナルで `xattr -dr com.apple.quarantine "/Applications/Local Transcriber.app"` を
-実行しても同じ結果になります。配布元は GitHub Releases だけです。ほかの場所で
+ターミナルで `xattr -dr com.apple.quarantine /Applications/LocalTranscriber.app` を
+実行しても同じ結果になります。2026年10月25日より前にダウンロードした 0.7.0 で
+「壊れているため開けません」と出る場合は、DMG を入れ直すか、このコマンドを使ってください。配布元は GitHub Releases だけです。ほかの場所で
 配られているファイルは使わないでください。
 
 自分でビルドする場合、Mac版はDMGとして生成されます。

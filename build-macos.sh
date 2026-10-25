@@ -182,17 +182,35 @@ fi
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 echo "[5/5] Creating the DMG..."
-rm -rf "$DMG_STAGE"
-mkdir -p "$DMG_STAGE"
-ditto "$APP_PATH" "$DMG_STAGE/LocalTranscriber.app"
-cp START_HERE_MAC.txt "$DMG_STAGE/START_HERE_MAC.txt"
-ln -s /Applications "$DMG_STAGE/Applications"
-hdiutil create \
-  -volname "Local Transcriber" \
-  -srcfolder "$DMG_STAGE" \
-  -ov \
-  -format UDZO \
-  "$DMG_PATH"
+# The DMG opens as a window with the app, an Applications shortcut and an
+# arrow between them (desktop/dmg-settings.py, assets/dmg-background*.png).
+# Falls back to a plain DMG with the same contents if dmgbuild fails.
+rm -f "$DMG_PATH"
+if "$PYTHON" -m pip install --disable-pip-version-check "dmgbuild>=1.6.7,<2" && \
+   "$PYTHON" -m dmgbuild -s desktop/dmg-settings.py \
+     -D app="$APP_PATH" -D readme=START_HERE_MAC.txt \
+     -D background=assets/dmg-background.png \
+     "Local Transcriber" "$DMG_PATH"; then
+  DMG_LAYOUT="drag-to-Applications window"
+else
+  echo "WARNING: dmgbuild failed; creating a plain DMG without the window layout."
+  DMG_LAYOUT="plain (dmgbuild failed)"
+  rm -rf "$DMG_STAGE"
+  mkdir -p "$DMG_STAGE"
+  ditto "$APP_PATH" "$DMG_STAGE/LocalTranscriber.app"
+  cp START_HERE_MAC.txt "$DMG_STAGE/START_HERE_MAC.txt"
+  ln -s /Applications "$DMG_STAGE/Applications"
+  hdiutil create \
+    -volname "Local Transcriber" \
+    -srcfolder "$DMG_STAGE" \
+    -ov \
+    -format UDZO \
+    "$DMG_PATH"
+fi
+echo "DMG layout: $DMG_LAYOUT"
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  echo "- DMG layout: $DMG_LAYOUT" >> "$GITHUB_STEP_SUMMARY"
+fi
 
 if [[ -n "${MAC_CODESIGN_IDENTITY:-}" ]]; then
   codesign --sign "$MAC_CODESIGN_IDENTITY" --timestamp "$DMG_PATH"

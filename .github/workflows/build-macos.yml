@@ -124,6 +124,25 @@ jobs:
             check_dmg "$RUNNER_TEMP"/published/*.dmg || echo "::warning::Published $COMPARE_RELEASE DMG fails signature verification"
           fi
 
+      # Visual check of the drag-to-Applications window (best effort: the
+      # runner may not allow screen capture).
+      - name: Screenshot the DMG window
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          hdiutil attach dist/LocalTranscriber-macOS-*.dmg >/dev/null
+          open "/Volumes/Local Transcriber"
+          sleep 6
+          screencapture -x "$RUNNER_TEMP/dmg-window.png"
+          hdiutil detach "/Volumes/Local Transcriber" >/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: dmg-window-screenshot
+          path: ${{ runner.temp }}/dmg-window.png
+          if-no-files-found: ignore
+
       - uses: actions/upload-artifact@v4
         with:
           name: LocalTranscriber-macOS-arm64

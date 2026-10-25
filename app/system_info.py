@@ -33,12 +33,23 @@ def total_memory_bytes() -> int:
     return 8 * 1024**3
 
 
+# Windows and Linux report less than the installed memory (firmware and
+# integrated graphics reserve part of it), e.g. 7.7 GiB on an 8 GB PC or
+# 31.6 GiB on a 32 GB PC. Exact 8/16/32 GiB boundaries therefore picked one
+# model too small on most 8/16/32 GB PCs, and "check for a better model" could
+# never offer Turbo there. The boundaries leave room for that reservation;
+# Macs report their unified memory exactly (8/16/24/32 GiB).
+_BASE_MIN_GIB = 7
+_SMALL_MIN_GIB = 14
+_TURBO_MIN_GIB = 28
+
+
 def select_model_for_memory(memory_bytes: int) -> str:
     memory_gib = memory_bytes / 1024**3
-    if memory_gib < 8:
+    if memory_gib < _BASE_MIN_GIB:
         return "tiny"
-    if memory_gib < 16:
+    if memory_gib < _SMALL_MIN_GIB:
         return "base"
-    if memory_gib < 32:
+    if memory_gib < _TURBO_MIN_GIB:
         return "small"
     return "turbo"

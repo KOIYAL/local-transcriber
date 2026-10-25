@@ -132,7 +132,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 The script installs `.[desktop,summary,diarize]` using the CPU wheel extra index,
 fetches a pinned, SHA-256-verified modelshelf asset, builds the PyInstaller
 backend and packages Electron. Output: `dist/LocalTranscriber-<version>-linux-x64.tar.gz`.
-The version comes from `desktop/package.json` (currently 0.7.1).
+The version comes from `desktop/package.json` (currently 0.7.2).
 Build on Ubuntu 22.04 for the intended baseline; builds made on newer systems
 may require newer system libraries. Cross-compilation is not supported.
 The workflow runs on `ubuntu-22.04` for manual dispatch and `v*` tags, tests first,
@@ -147,8 +147,12 @@ The automatic model choice uses total system memory:
 | --- | --- |
 | Below 8 GB | Tiny |
 | 8 GB to below 16 GB | Base |
-| 16 GB to below 32 GB | Small |
+| 16 GB to below 32 GB (including 24 GB Macs) | Small |
 | 32 GB or more | Turbo (large-v3-turbo, about 1.62 GB) |
+
+Windows and Linux report a little less than the installed memory, so the
+boundaries leave room (Base from 7 GiB, Small from 14 GiB, Turbo from 28 GiB).
+PCs sold as 8, 16 or 32 GB get the model in the table (since 0.7.2).
 
 Already installed models, including Medium, are kept. On a machine with at
 least 32 GB, use the model check button in Settings to choose the Turbo upgrade.

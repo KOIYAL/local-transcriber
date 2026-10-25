@@ -127,8 +127,12 @@ After the first setup, transcription can run offline.
 | --- | --- |
 | 8GB未満 | Tiny |
 | 8GB以上16GB未満 | Base |
-| 16GB以上32GB未満 | Small |
+| 16GB以上32GB未満（Mac の 24GB を含む） | Small |
 | 32GB以上 | Turbo（large-v3-turbo、約1.62GB） |
+
+Windows・Linux はシステムが確保する分だけ見えるメモリが少なくなるため、
+判定には余裕を持たせています（7GiB以上で Base、14GiB以上で Small、28GiB以上で Turbo）。
+表示どおり 8GB・16GB・32GB の PC は、表のとおりのモデルになります（0.7.2 から）。
 
 モデルはユーザーごとのアプリデータ領域に保存されます。アプリを更新しても、
 同じモデルを再ダウンロードする必要はありません。導入済みの Medium もそのまま使えます。
@@ -552,7 +556,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 modelshelf は公式リリースの URL と SHA-256 を固定して取得し、実行できる場合に同梱します。
 PyInstaller でバックエンドを作り、Electron と案内をまとめて
 `dist/LocalTranscriber-<version>-linux-x64.tar.gz` を生成します。
-バージョンは `desktop/package.json` から読みます（現在は 0.7.1）。
+バージョンは `desktop/package.json` から読みます（現在は 0.7.2）。
 GitHub Actions は `workflow_dispatch` と `v*` タグで同じスクリプトを実行し、
 テストが通った後に artifact を保存します。GitHub Release への公開は行いません。
 

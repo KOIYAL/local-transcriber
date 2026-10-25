@@ -148,14 +148,9 @@ PACKAGER_ARGS=(
   "--extend-info=extend-info.mac.plist"
 )
 
-if [[ -n "${MAC_CODESIGN_IDENTITY:-}" ]]; then
-  PACKAGER_ARGS+=(
-    "--osx-sign.identity=$MAC_CODESIGN_IDENTITY"
-    "--osx-sign.hardenedRuntime=true"
-    "--osx-sign.entitlements=entitlements.mac.plist"
-    "--osx-sign.entitlements-inherit=entitlements.mac.plist"
-  )
-else
+# Signing happens after packaging (below): the backend's links must be fixed
+# before anything is signed.
+if [[ -z "${MAC_CODESIGN_IDENTITY:-}" ]]; then
   echo "Warning: MAC_CODESIGN_IDENTITY is not set. Creating an unsigned test build."
 fi
 
@@ -170,18 +165,20 @@ DMG_STAGE="build/dmg-macos-$ELECTRON_ARCH"
 
 # Electron Packager made the backend's symbolic links absolute (pointing at
 # this build machine, including _internal/Python); point them back inside
-# the app. Signed builds are signed by Packager before this point and still
-# need the same fix moved ahead of signing (see docs/CLOUD-MAC-BUILD.md).
+# the app before signing.
 "$PYTHON" scripts/relativize_backend_links.py \
   "$APP_PATH/Contents/Resources/local-transcriber-backend" dist/backend-macos/local-transcriber-backend
 
-if [[ -z "${MAC_CODESIGN_IDENTITY:-}" ]]; then
+if [[ -n "${MAC_CODESIGN_IDENTITY:-}" ]]; then
+  echo "Signing with $MAC_CODESIGN_IDENTITY (hardened runtime)..."
+  (cd desktop && node sign-macos.mjs "../$APP_PATH" "$MAC_CODESIGN_IDENTITY" entitlements.mac.plist)
+else
   # Without a certificate the bundle would keep a broken signature and macOS
   # would call the download "damaged" with no way to open it. A consistent
   # ad-hoc signature turns that into the ordinary "unidentified developer"
   # prompt that can be allowed once in System Settings.
   echo "Ad-hoc signing the unsigned build so macOS does not report it as damaged..."
-  scripts/adhoc_sign_macos.sh "$APP_PATH"
+  PYTHON="$PYTHON" scripts/adhoc_sign_macos.sh "$APP_PATH"
 fi
 # Fails the build if any part of the bundle no longer matches its signature.
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"

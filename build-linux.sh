@@ -90,7 +90,7 @@ APP_DIR="dist/electron/LocalTranscriber-linux-x64"
 ARCHIVE="dist/LocalTranscriber-$VERSION-linux-x64.tar.gz"
 # Electron Packager made the backend's symbolic links absolute (pointing at
 # this build machine); point them back inside the package.
-python3 scripts/relativize_backend_links.py \
+"$PYTHON" scripts/relativize_backend_links.py \
   "$APP_DIR/resources/local-transcriber-backend" dist/backend-linux/local-transcriber-backend
 cp START_HERE_LINUX.txt "$APP_DIR/START_HERE_LINUX.txt"
 cp LICENSE "$APP_DIR/LICENSE-local-transcriber.txt"

@@ -10,8 +10,9 @@
 #   2. sign every Mach-O file in Resources, deepest first
 #   3. sign the whole app (frameworks and helpers via --deep)
 #
-# Usage: scripts/adhoc_sign_macos.sh path/to/LocalTranscriber.app
+# Usage: [PYTHON=path/to/python3] scripts/adhoc_sign_macos.sh path/to/LocalTranscriber.app
 set -euo pipefail
+PYTHON="${PYTHON:-python3}"
 
 APP="$1"
 APP_REAL="$(cd "$APP" && pwd -P)"
@@ -21,7 +22,7 @@ echo "Checking symbolic links that leave the bundle..."
 # codesign reject the bundle, so stop with a clear message instead.
 leaving=0
 while IFS= read -r -d '' link; do
-  resolved="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$link")"
+  resolved="$("$PYTHON" -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$link")"
   case "$resolved" in
     "$APP_REAL"/*) continue ;;
   esac

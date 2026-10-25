@@ -169,14 +169,12 @@ DMG_PATH="dist/LocalTranscriber-macOS-$ELECTRON_ARCH.dmg"
 DMG_STAGE="build/dmg-macos-$ELECTRON_ARCH"
 
 if [[ -z "${MAC_CODESIGN_IDENTITY:-}" ]]; then
-  # Without a certificate, Electron Packager leaves Electron's original
-  # signature in place even though it renamed the executable, rewrote
-  # Info.plist and added resources. macOS then reports the download as
-  # "damaged" and offers no way to open it. A fresh ad-hoc signature over the
-  # whole bundle keeps it consistent, so Gatekeeper shows the ordinary
-  # "unidentified developer" prompt that can be allowed in System Settings.
+  # Without a certificate the bundle would keep a broken signature and macOS
+  # would call the download "damaged" with no way to open it. A consistent
+  # ad-hoc signature turns that into the ordinary "unidentified developer"
+  # prompt that can be allowed once in System Settings.
   echo "Ad-hoc signing the unsigned build so macOS does not report it as damaged..."
-  codesign --force --deep --sign - "$APP_PATH"
+  scripts/adhoc_sign_macos.sh "$APP_PATH"
 fi
 # Fails the build if any part of the bundle no longer matches its signature.
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"

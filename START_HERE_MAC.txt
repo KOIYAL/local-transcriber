@@ -15,7 +15,8 @@ the first model download.
 
 This build is not signed by Apple, so the first launch is blocked. Allow it
 once: open the app (it is refused), then System Settings > Privacy &
-Security > "Open Anyway", then open it again. Download only from
+Security > Security > "Open Anyway", confirm "Open Anyway" and enter your
+Mac login password. Download only from
 https://github.com/KOIYAL/local-transcriber/releases
 
 
@@ -33,5 +34,5 @@ https://github.com/KOIYAL/local-transcriber/releases
 
 この版は Apple の署名が無いため、初回は起動を止められます。1 回だけ許可して
 ください: アプリを開く（拒否される）→「システム設定」→「プライバシーとセキュリティ」
-→「このまま開く」→ もう一度開く。入手先は GitHub Releases だけにしてください。
+→「セキュリティ」の「開く」→「このまま開く」→ Mac のログインパスワードを入力。入手先は GitHub Releases だけにしてください。
 https://github.com/KOIYAL/local-transcriber/releases

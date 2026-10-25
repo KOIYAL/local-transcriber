@@ -188,9 +188,25 @@ echo "[5/5] Creating the DMG..."
 # arrow between them (desktop/dmg-settings.py, assets/dmg-background*.png).
 # Falls back to a plain DMG with the same contents if dmgbuild fails.
 rm -f "$DMG_PATH"
+# A shortcut that opens System Settings > Privacy & Security at the Security
+# section (where "Open" appears after macOS blocks the unsigned app).
+SETTINGS_LINK_DIR="build/dmg-link-$ELECTRON_ARCH"
+SETTINGS_LINK="$SETTINGS_LINK_DIR/セキュリティ設定を開く.webloc"
+rm -rf "$SETTINGS_LINK_DIR"
+mkdir -p "$SETTINGS_LINK_DIR"
+cat > "$SETTINGS_LINK" <<'WEBLOC'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>URL</key>
+  <string>x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Security</string>
+</dict>
+</plist>
+WEBLOC
 if "$PYTHON" -m pip install --disable-pip-version-check "dmgbuild>=1.6.7,<2" && \
    "$PYTHON" -m dmgbuild -s desktop/dmg-settings.py \
-     -D app="$APP_PATH" -D readme=START_HERE_MAC.txt \
+     -D app="$APP_PATH" -D readme=START_HERE_MAC.txt -D settings_link="$SETTINGS_LINK" \
      -D background=assets/dmg-background.png \
      "Local Transcriber" "$DMG_PATH"; then
   DMG_LAYOUT="drag-to-Applications window"

@@ -144,17 +144,30 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          hdiutil attach dist/LocalTranscriber-macOS-*.dmg >/dev/null
+          # Mark the DMG like a browser download, so the shortcut inside is
+          # opened under the same conditions as on a user's Mac.
+          cp dist/LocalTranscriber-macOS-*.dmg "$RUNNER_TEMP/downloaded.dmg"
+          xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");Safari;" "$RUNNER_TEMP/downloaded.dmg"
+          hdiutil attach "$RUNNER_TEMP/downloaded.dmg" >/dev/null
           open "/Volumes/Local Transcriber"
           sleep 6
           screencapture -x "$RUNNER_TEMP/dmg-window.png"
+          # The Privacy & Security shortcut should open System Settings at the
+          # Security section.
+          open "/Volumes/Local Transcriber/セキュリティ設定を開く.webloc"
+          sleep 8
+          screencapture -x "$RUNNER_TEMP/settings-opened.png"
+          pgrep -lf "System Settings" || echo "System Settings is not running"
+          osascript -e 'tell application "System Settings" to quit' || true
           hdiutil detach "/Volumes/Local Transcriber" >/dev/null || true
 
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
           name: dmg-window-screenshot
-          path: ${{ runner.temp }}/dmg-window.png
+          path: |
+            ${{ runner.temp }}/dmg-window.png
+            ${{ runner.temp }}/settings-opened.png
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4

@@ -123,7 +123,7 @@ After the first setup, transcription can run offline.
 
 モデルの自動選択基準:
 
-| PC/Macのメモリ | 使用モデル |
+| 搭載メモリ（PC/Macの表示上の容量） | 使用モデル |
 | --- | --- |
 | 8GB未満 | Tiny |
 | 8GB以上16GB未満 | Base |
@@ -131,8 +131,10 @@ After the first setup, transcription can run offline.
 | 32GB以上 | Turbo（large-v3-turbo、約1.62GB） |
 
 Windows・Linux はシステムが確保する分だけ見えるメモリが少なくなるため、
-判定には余裕を持たせています（7GiB以上で Base、14GiB以上で Small、28GiB以上で Turbo）。
-表示どおり 8GB・16GB・32GB の PC は、表のとおりのモデルになります（0.7.2 から）。
+実際の判定は、アプリから見えるメモリが 7GiB 以上で Base、14GiB 以上で Small、
+28GiB 以上で Turbo です。表示どおり 8GB・16GB・32GB の PC は表のとおりのモデルになります（0.7.2 から）。
+これは新規セットアップ時の選択です。導入済みのモデルは維持されるので、上位モデルへは
+設定の「より良いモデルを確認」から切り替えます。
 
 モデルはユーザーごとのアプリデータ領域に保存されます。アプリを更新しても、
 同じモデルを再ダウンロードする必要はありません。導入済みの Medium もそのまま使えます。

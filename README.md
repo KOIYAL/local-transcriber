@@ -141,7 +141,7 @@ and uploads an artifact without publishing a release. See the
 
 ## Models and glossary
 
-The automatic model choice uses total system memory:
+The automatic model choice on a new setup, by installed memory as sold:
 
 | Memory | Model |
 | --- | --- |
@@ -151,8 +151,9 @@ The automatic model choice uses total system memory:
 | 32 GB or more | Turbo (large-v3-turbo, about 1.62 GB) |
 
 Windows and Linux report a little less than the installed memory, so the
-boundaries leave room (Base from 7 GiB, Small from 14 GiB, Turbo from 28 GiB).
-PCs sold as 8, 16 or 32 GB get the model in the table (since 0.7.2).
+actual boundaries leave room: Base from 7 GiB, Small from 14 GiB and Turbo from
+28 GiB of reported memory. PCs sold as 8, 16 or 32 GB get the model in the table
+(since 0.7.2). Installed models are kept; switch up with the model check in Settings.
 
 Already installed models, including Medium, are kept. On a machine with at
 least 32 GB, use the model check button in Settings to choose the Turbo upgrade.

@@ -168,6 +168,13 @@ APP_PATH="dist/electron/LocalTranscriber-darwin-$ELECTRON_ARCH/LocalTranscriber.
 DMG_PATH="dist/LocalTranscriber-macOS-$ELECTRON_ARCH.dmg"
 DMG_STAGE="build/dmg-macos-$ELECTRON_ARCH"
 
+# Electron Packager made the backend's symbolic links absolute (pointing at
+# this build machine, including _internal/Python); point them back inside
+# the app. Signed builds are signed by Packager before this point and still
+# need the same fix moved ahead of signing (see docs/CLOUD-MAC-BUILD.md).
+"$PYTHON" scripts/relativize_backend_links.py \
+  "$APP_PATH/Contents/Resources/local-transcriber-backend" dist/backend-macos/local-transcriber-backend
+
 if [[ -z "${MAC_CODESIGN_IDENTITY:-}" ]]; then
   # Without a certificate the bundle would keep a broken signature and macOS
   # would call the download "damaged" with no way to open it. A consistent

@@ -115,13 +115,27 @@ jobs:
             codesign -dv "$app" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" || true
             codesign --verify --deep --strict --verbose=2 "$app"; local verify=$?
             spctl --assess --type execute -vv "$app" 2>&1 || true
-            return $verify
+            # Start the bundled backend the way the app does and wait for it.
+            local be="$app/Contents/Resources/local-transcriber-backend/local-transcriber-backend" up=1
+            LT_UPDATE_CHECK=off "$be" --port 18911 > "$RUNNER_TEMP/backend.log" 2>&1 &
+            local pid=$!
+            for _ in $(seq 1 60); do
+              if curl -fs http://127.0.0.1:18911/api/health >/dev/null; then up=0; break; fi
+              kill -0 "$pid" 2>/dev/null || break
+              sleep 1
+            done
+            kill "$pid" 2>/dev/null || true
+            if [ "$up" -eq 0 ]; then echo "backend: started"; else echo "backend: FAILED to start"; tail -20 "$RUNNER_TEMP/backend.log"; fi
+            return $(( verify || up ))
           }
-          check_dmg dist/LocalTranscriber-macOS-*.dmg || { echo "::error::The built app's signature is broken (macOS would call it damaged)"; exit 1; }
+          # Hide the build output so links that still point at it would fail,
+          # exactly as on a user's Mac.
+          mv dist/backend-macos "$RUNNER_TEMP/backend-macos-hidden"
+          check_dmg dist/LocalTranscriber-macOS-*.dmg || { echo "::error::The built app is broken (signature or backend start)"; exit 1; }
           if [ -n "$COMPARE_RELEASE" ]; then
             gh release download "$COMPARE_RELEASE" --repo "$GITHUB_REPOSITORY" \
               --pattern 'LocalTranscriber-macOS-*.dmg' --dir "$RUNNER_TEMP/published"
-            check_dmg "$RUNNER_TEMP"/published/*.dmg || echo "::warning::Published $COMPARE_RELEASE DMG fails signature verification"
+            check_dmg "$RUNNER_TEMP"/published/*.dmg || echo "::warning::Published $COMPARE_RELEASE DMG fails (signature or backend start)"
           fi
 
       # Visual check of the drag-to-Applications window (best effort: the

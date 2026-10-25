@@ -6,7 +6,7 @@
 # bundle fails `codesign --verify` and macOS calls the download "damaged".
 # `codesign --deep` alone is not enough: it does not treat the backend's
 # Mach-O files in Resources as nested code. So, inside out:
-#   1. fix symbolic links that point outside the bundle (codesign rejects them)
+#   1. stop if a symbolic link still points outside the bundle (codesign rejects them)
 #   2. sign every Mach-O file in Resources, deepest first
 #   3. sign the whole app (frameworks and helpers via --deep)
 #
@@ -17,21 +17,21 @@ APP="$1"
 APP_REAL="$(cd "$APP" && pwd -P)"
 
 echo "Checking symbolic links that leave the bundle..."
+# relativize_backend_links.py runs first; anything left here would make
+# codesign reject the bundle, so stop with a clear message instead.
+leaving=0
 while IFS= read -r -d '' link; do
-  target="$(readlink "$link")"
   resolved="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$link")"
   case "$resolved" in
     "$APP_REAL"/*) continue ;;
   esac
-  if [[ -e "$resolved" ]]; then
-    echo "  copying in: $link -> $target"
-    rm "$link"
-    cp -R "$resolved" "$link"
-  else
-    echo "  removing dangling link: $link -> $target"
-    rm "$link"
-  fi
+  echo "  link leaves the bundle: $link -> $(readlink "$link")"
+  leaving=1
 done < <(find "$APP" -type l -print0)
+if [[ "$leaving" -ne 0 ]]; then
+  echo "Fix the links above before signing."
+  exit 1
+fi
 
 echo "Signing Mach-O files in Resources..."
 count=0

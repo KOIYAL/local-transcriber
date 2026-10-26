@@ -1,0 +1,133 @@
+name: Diagnose Windows speaker diarization
+
+# Reproduces "speaker diarization never finishes on Windows" with a published
+# release: starts the packaged backend, prepares the Whisper and diarization
+# models, transcribes ~40 s of synthesized two-voice speech with and without
+# diarization, and records job progress and the backend's processes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release tag to test"
+        required: false
+        default: "v0.7.2"
+      zip_artifact_run:
+        description: "Instead of a release, use the Windows artifact of this Actions run ID"
+        required: false
+        default: ""
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Get the Windows build
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force lt | Out-Null
+          if ("${{ inputs.zip_artifact_run }}") {
+            gh run download "${{ inputs.zip_artifact_run }}" --repo $env:GITHUB_REPOSITORY -n LocalTranscriber-win-x64 -D lt
+          } else {
+            gh release download "${{ inputs.release }}" --repo $env:GITHUB_REPOSITORY --pattern "*win-x64.zip" -D lt
+          }
+          $zip = Get-ChildItem lt -Filter *.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath lt\app
+          $exe = Get-ChildItem lt\app -Recurse -Filter local-transcriber-backend.exe | Select-Object -First 1
+          "BACKEND=$($exe.FullName)" | Out-File -Append $env:GITHUB_ENV
+          Write-Host "backend: $($exe.FullName)"
+
+      - name: Synthesize ~40 s of two-voice speech
+        run: |
+          Add-Type -AssemblyName System.Speech
+          $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+          $voices = $s.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo.Name }
+          Write-Host "voices: $($voices -join ', ')"
+          $lines = @(
+            "Good morning. Let's review the project schedule for this week.",
+            "Sure. The design review moved to Thursday afternoon.",
+            "Then the prototype test should start on Friday morning.",
+            "I agree. We also need the budget numbers from finance.",
+            "I will ask them today and share the file by tomorrow.",
+            "Great. Please also check the meeting room for Friday.",
+            "Understood. Anything else before we close?",
+            "No, that's all. Thank you, everyone."
+          )
+          $parts = @()
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            $s.SelectVoice($voices[$i % [Math]::Min(2, $voices.Count)])
+            $p = "part$i.wav"
+            $s.SetOutputToWaveFile((Join-Path $PWD $p)); $s.Speak($lines[$i]); $s.SetOutputToNull()
+            $parts += $p
+          }
+          # Concatenate with ffmpeg (preinstalled on the runner) and pad to ~40 s with a little silence between turns
+          $list = ($parts | ForEach-Object { "file '$_'" }) -join "`n"
+          Set-Content concat.txt $list
+          ffmpeg -loglevel error -y -f concat -safe 0 -i concat.txt -af "apad=pad_dur=1" -ar 16000 -ac 1 meeting.wav
+          ffprobe -v error -show_entries format=duration -of csv=p=0 meeting.wav
+
+      - name: Start the backend
+        run: |
+          New-Item -ItemType Directory -Force data | Out-Null
+          $env:TRANSCRIBER_DATA_DIR = (Join-Path $PWD data)
+          $env:WHISPER_MODEL_DIR = (Join-Path $PWD data\models)
+          $env:LT_UPDATE_CHECK = "off"
+          $env:PYTHONUTF8 = "1"
+          Start-Process -FilePath $env:BACKEND -ArgumentList "--port","18911" -RedirectStandardOutput backend.out -RedirectStandardError backend.err -WindowStyle Hidden
+          for ($i = 0; $i -lt 60; $i++) {
+            try { Invoke-RestMethod http://127.0.0.1:18911/api/health | Out-Null; Write-Host "backend up"; break } catch { Start-Sleep 1 }
+          }
+
+      - name: Prepare models
+        run: |
+          for ($i = 0; $i -lt 180; $i++) {
+            $s = Invoke-RestMethod http://127.0.0.1:18911/api/setup
+            if ($s.ready) { break }; Start-Sleep 5
+          }
+          Write-Host "whisper: $($s | ConvertTo-Json -Compress)"
+          Invoke-RestMethod -Method Post http://127.0.0.1:18911/api/diarize/setup | Out-Null
+          for ($i = 0; $i -lt 120; $i++) {
+            $d = Invoke-RestMethod http://127.0.0.1:18911/api/diarize/setup
+            if ($d.ready -or $d.status -eq "failed" -or $d.status -eq "unavailable") { break }; Start-Sleep 5
+          }
+          Write-Host "diarize: $($d | ConvertTo-Json -Compress)"
+
+      - name: Transcribe without and with diarization
+        run: |
+          function Run-Job($diarize, $limitSec) {
+            $args = @("-s", "-F", "file=@meeting.wav")
+            if ($diarize) { $args += @("-F", "diarize=true") }
+            $job = (curl.exe @args http://127.0.0.1:18911/api/jobs) | ConvertFrom-Json
+            Write-Host "== job $($job.id) diarize=$diarize"
+            $start = Get-Date; $last = ""
+            while ($true) {
+              $j = Invoke-RestMethod "http://127.0.0.1:18911/api/jobs/$($job.id)"
+              $line = "$($j.status) $($j.progress) $($j.stage) $($j.message)"
+              $elapsed = [int]((Get-Date) - $start).TotalSeconds
+              if ($line -ne $last) { Write-Host "[$elapsed s] $line"; $last = $line }
+              if ($j.status -in @("completed", "failed")) {
+                if ($j.error) { Write-Host "error: $($j.error | ConvertTo-Json -Compress)" }
+                if ($j.result) { Write-Host "text: $($j.result.text)"; ($j.result.segments | Select-Object -First 6 | ForEach-Object { "  [$($_.speaker)] $($_.text)" }) | Write-Host }
+                return $true
+              }
+              if ($elapsed -ge $limitSec) {
+                Write-Host "NOT FINISHED after $limitSec s"
+                Get-CimInstance Win32_Process -Filter "Name='local-transcriber-backend.exe'" | ForEach-Object {
+                  $p = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue
+                  Write-Host ("  pid={0} parent={1} cpu={2}s mem={3}MB cmd={4}" -f $_.ProcessId, $_.ParentProcessId, [int]$p.CPU, [int]($p.WorkingSet64/1MB), $_.CommandLine)
+                }
+                return $false
+              }
+              Start-Sleep 3
+            }
+          }
+          Run-Job $false 600 | Out-Null
+          $ok = Run-Job $true 600
+          Write-Host "--- backend.err (tail)"; Get-Content backend.err -Tail 40 -ErrorAction SilentlyContinue
+          Write-Host "--- backend.out (tail)"; Get-Content backend.out -Tail 20 -ErrorAction SilentlyContinue
+          if (-not $ok) { exit 1 }

@@ -31,6 +31,7 @@ const progressPanel = document.querySelector("#progress-panel");
 const progressTitle = document.querySelector("#progress-title");
 const progressPercent = document.querySelector("#progress-percent");
 const progressBar = document.querySelector("#progress-bar");
+const progressTrack = document.querySelector("#progress-panel .progress-track");
 const progressMessage = document.querySelector("#progress-message");
 const resultPanel = document.querySelector("#result-panel");
 const resultMeta = document.querySelector("#result-meta");
@@ -47,6 +48,7 @@ const localeButtons = document.querySelectorAll("[data-locale]");
 
 const translations = {
   en: {
+    engineDisconnected: "The connection to the transcription engine was lost. Please restart the app. The files available through Settings > Open logs folder can help investigate the cause.",
     diarizeLabel: "Separate speakers (experimental; takes extra time)",
     diarizeHint: "Applies to files and recordings. First use downloads about 47 MB. Speakers are numbered, not identified by name.",
     diarizeDownloading: "Preparing speaker models: {{percent}}%. Transcriptions started now will not have speaker labels.",
@@ -148,6 +150,7 @@ const translations = {
     errorJobBusy: "The job is still processing or could not be found.",
   },
   ja: {
+    engineDisconnected: "文字起こしエンジンとの接続が切れました。アプリを再起動してください。原因の調査には、設定の『ログフォルダを開く』にあるファイルが役立ちます。",
     diarizeLabel: "話者を分ける（試験的・時間がかかります）",
     diarizeHint: "ファイルと録音に共通で使います。初回に約47MBを取得します。話者は番号で区別し、名前は判定しません。",
     diarizeDownloading: "話者モデルを準備中: {{percent}}%。今開始する文字起こしには話者ラベルが付きません。",
@@ -280,6 +283,9 @@ let currentSetup = null;
 let currentLocale = getInitialLocale();
 let submitState = "startTranscription";
 let pollTimer = null;
+let pollingJobId = null;
+let pollFailureSince = null;
+let engineDisconnected = false;
 let setupTimer = null;
 let summaryTimer = null;
 let toastTimer = null;
@@ -578,6 +584,13 @@ function jobMessage(job) {
 }
 
 function updateProgress(job) {
+  progressTrack.hidden = engineDisconnected;
+  progressPercent.hidden = engineDisconnected;
+  if (engineDisconnected) {
+    progressTitle.textContent = t("processingFailed");
+    progressMessage.textContent = t("engineDisconnected");
+    return;
+  }
   const percentage = Math.round((job.progress || 0) * 100);
   progressTitle.textContent = t(statusTitleKeys[job.status] || "statusProcessing");
   progressPercent.textContent = `${percentage}%`;
@@ -759,6 +772,7 @@ window.LT = {
   getLocale: () => currentLocale,
   showToast,
   trackJob: async (job) => {
+    resetJobPolling();
     currentJob = job;
     resultPanel.hidden = true;
     progressPanel.hidden = false;
@@ -769,32 +783,52 @@ window.LT = {
   },
 };
 
+function resetJobPolling() {
+  window.clearTimeout(pollTimer);
+  pollingJobId = null;
+  pollFailureSince = null;
+  engineDisconnected = false;
+}
+
 async function pollJob(jobId) {
   window.clearTimeout(pollTimer);
+  if (pollingJobId !== jobId) {
+    resetJobPolling();
+    pollingJobId = jobId;
+  }
+  let job;
   try {
     const response = await fetch(`/api/jobs/${jobId}`);
     if (!response.ok) throw new Error(await readError(response));
-    const job = await response.json();
-    currentJob = job;
-    updateProgress(job);
-
-    if (job.status === "completed") {
-      renderResult(job);
-      return;
-    }
-    if (job.status === "failed") {
-      throw new Error(job.error || t("transcriptionFailed"));
-    }
+    job = await response.json();
+  } catch {
+    if (pollingJobId !== jobId) return;
+    if (pollFailureSince === null) pollFailureSince = Date.now();
+    engineDisconnected = Date.now() - pollFailureSince >= 10000;
+    if (engineDisconnected) updateProgress(currentJob || {});
     pollTimer = window.setTimeout(() => pollJob(jobId), 1000);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : t("genericError");
+    return;
+  }
+  if (pollingJobId !== jobId) return;
+  pollFailureSince = null;
+  engineDisconnected = false;
+  currentJob = job;
+  updateProgress(job);
+  if (job.status === "completed") {
+    renderResult(job);
+    return;
+  }
+  if (job.status === "failed") {
+    const message = job.error || t("transcriptionFailed");
     progressTitle.textContent = t("processingFailed");
     progressMessage.textContent = message;
     progressBar.style.background = "#b44732";
     submitButton.disabled = false;
     setSubmitState("startTranscription");
     showToast(message);
+    return;
   }
+  pollTimer = window.setTimeout(() => pollJob(jobId), 1000);
 }
 
 localeButtons.forEach((button) => {
@@ -832,6 +866,7 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!currentFile) return;
 
+  resetJobPolling();
   submitButton.disabled = true;
   setSubmitState("uploading");
   resultPanel.hidden = true;

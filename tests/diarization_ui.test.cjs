@@ -25,7 +25,10 @@ function harness(initial = { available: true, ready: false, status: 'not_started
     get: key => preferences.get(key) ?? null, set: (key, value) => preferences.set(key, value),
   } };
   let next = initial, fail = false, created = 0;
+  let now = 0, jobFailure = null;
+  let jobResponse = { id: 'job', status: 'failed', error: 'fake stop polling' };
   const context = vm.createContext({
+    Date: class extends Date { static now() { return now; } },
     window, navigator: { language: 'ja' },
     localStorage: { getItem() { return null; }, setItem() {} },
     document: { querySelector: element, querySelectorAll: () => [], documentElement: {},
@@ -33,6 +36,10 @@ function harness(initial = { available: true, ready: false, status: 'not_started
     FormData: class { constructor() { this.data = new Map(); } set(k,v) { this.data.set(k,v); } get(k) { return this.data.get(k); } },
     fetch: async (url, init = {}) => {
       calls.push([url, init]);
+      if (url === '/api/jobs/job') {
+        if (jobFailure === 'network') throw new Error('offline');
+        return { ok: jobFailure !== 'http', json: async () => jobResponse };
+      }
       if (url === '/api/diarize/setup' && fail) throw new Error('offline');
       const data = url === '/api/config' ? { max_upload_mb: 10, diarize: initial }
         : url === '/api/diarize/setup' ? next
@@ -46,6 +53,9 @@ function harness(initial = { available: true, ready: false, status: 'not_started
   vm.runInContext(fs.readFileSync('app/static/preferences.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('app/static/app.js', 'utf8'), context);
   return { element, calls, timers, window,
+    now(value) { now = value; },
+    failJob(type = 'network') { jobFailure = type; },
+    respondJob(value) { jobFailure = null; jobResponse = value; },
     run(code) { return vm.runInContext(code, context); },
     respond(value) { next = value; }, fail() { fail = true; },
     async change() { await element('#diarize').listeners.change(); await settle(); },
@@ -126,4 +136,48 @@ test('file upload sends selected diarization and results render labels as text',
   assert.equal(h.element('#progress-title').textContent, '話者を分けています');
   h.run('updateResultMeta({ filename: "a", result: { duration: 2, language: "ja", diarization_failed: true } })');
   assert.match(h.element('#result-meta').textContent, /元音声を残しました/);
+});
+
+for (const failure of ['network', 'http']) {
+  test(`job polling warns after ten seconds of ${failure} failure and recovers`, async () => {
+    const h = harness(); await settle();
+    h.failJob(failure);
+    await h.window.LT.trackJob({ id: 'job', status: 'transcribing', progress: .12 });
+    assert.equal(h.element('#progress-percent').hidden, false);
+    h.now(9999); await h.tick();
+    assert.equal(h.element('#progress-percent').hidden, false);
+    h.now(10000); await h.tick();
+    assert.equal(h.element('#progress-percent').hidden, true);
+    assert.equal(h.element('#progress-panel .progress-track').hidden, true);
+    assert.match(h.element('#progress-message').textContent, /接続が切れました.*ログフォルダを開く/);
+    h.run('applyLanguage("en", false)');
+    assert.match(h.element('#progress-message').textContent, /connection.*restart.*Open logs folder/);
+    h.respondJob({ id: 'job', status: 'transcribing', progress: .5 });
+    await h.tick();
+    assert.equal(h.element('#progress-percent').hidden, false);
+    assert.equal(h.element('#progress-panel .progress-track').hidden, false);
+    assert.equal(h.element('#progress-percent').textContent, '50%');
+    h.failJob(); h.now(20000); await h.tick();
+    assert.equal(h.element('#progress-percent').hidden, false);
+    h.now(29999); await h.tick();
+    assert.equal(h.element('#progress-percent').hidden, false);
+    h.respondJob({ id: 'job', status: 'completed', filename: 'a.wav', result: {
+      duration: 1, language: 'en', segments: [], text: '',
+    } });
+    await h.tick();
+    assert.equal(h.element('#progress-panel').hidden, true);
+    assert.equal(h.element('#result-panel').hidden, false);
+  });
+}
+
+test('a terminal job failure still shows its error and stops polling', async () => {
+  const h = harness(); await settle();
+  h.respondJob({ id: 'job', status: 'failed', error: 'native failure' });
+  await h.window.LT.trackJob({ id: 'job', status: 'transcribing' });
+  assert.equal(h.element('#progress-message').textContent, 'native failure');
+  assert.equal(h.element('#submit-button').disabled, false);
+  const calls = h.calls.length;
+  await h.tick(); // Toast expiry, not a retry.
+  assert.equal(h.calls.length, calls);
+  assert.equal(h.timers.size, 0);
 });

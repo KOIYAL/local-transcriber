@@ -7,6 +7,8 @@ import os
 import uvicorn
 
 from app.main import app as web_app
+from app.config import SETTINGS
+from app.logging_setup import setup_logging
 
 
 def main() -> None:
@@ -14,6 +16,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     arguments = parser.parse_args()
+    setup_logging(SETTINGS, web_app.version)
     uvicorn.run(
         web_app,
         host=arguments.host,

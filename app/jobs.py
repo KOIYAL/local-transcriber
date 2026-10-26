@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import shutil
+import logging
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -13,6 +15,10 @@ from app.config import Settings
 from app.exporters import to_txt, write_exports
 from app.diarizer import assign_speakers
 from app.transcriber import TranscriptionEngine
+from app.logging_setup import log_failure
+
+
+logger = logging.getLogger(__name__)
 
 
 def utc_now() -> str:
@@ -177,6 +183,8 @@ class JobManager:
             )
             if job.options.get("diarize"):
                 self._update(job_id, "diarizing", 0.90, "Separating speakers.")
+                started = time.monotonic()
+                logger.info("diarization_start job=%s", job_id)
                 try:
                     if self.diarizer is None:
                         raise RuntimeError("Speaker diarization is unavailable")
@@ -189,7 +197,11 @@ class JobManager:
                     )
                     result["segments"] = assign_speakers(result["segments"], turns)
                     result["text"] = to_txt(result["segments"]).strip()
-                except Exception:
+                    logger.info("diarization_end job=%s seconds=%.3f", job_id,
+                                time.monotonic() - started)
+                except Exception as exc:
+                    log_failure(logger, "diarization_timeout" if isinstance(exc, TimeoutError)
+                                else "diarization_failed", exc, job_id=job_id)
                     # Preserve useful transcription and the source on optional-feature failure.
                     result["diarization_failed"] = True
             self._update(job_id, "finalizing", 0.94, "Creating output files.")
@@ -222,6 +234,7 @@ class JobManager:
             if not self.settings.keep_uploads and not result.get("diarization_failed"):
                 job.media_path.unlink(missing_ok=True)
         except Exception as exc:
+            log_failure(logger, "job_failed", exc, job_id=job_id)
             self._update(job_id, "failed", 1.0, "Transcription failed.")
             with self._lock:
                 self._jobs[job_id].error = str(exc)
@@ -280,6 +293,7 @@ class JobManager:
                 job.exports["summary.txt"] = summary_path
             self._set_summary(job_id, "completed")
         except Exception as exc:
+            log_failure(logger, "summary_failed", exc, job_id=job_id)
             self._set_summary(job_id, "failed", str(exc))
 
     def shutdown(self) -> None:

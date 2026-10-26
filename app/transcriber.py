@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import gc
+import logging
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -10,6 +12,7 @@ from app.config import MODEL_PRESETS, Settings
 
 
 ProgressCallback = Callable[[str, float, str], None]
+logger = logging.getLogger(__name__)
 
 
 class TranscriptionEngine:
@@ -84,6 +87,9 @@ class TranscriptionEngine:
             # previous one would otherwise stay in (GPU) memory for good.
             self._models.clear()
             gc.collect()
+            started = time.monotonic()
+            logger.info("model_load_start model=%s device=%s compute_type=%s",
+                        model_name, device, compute_type)
             model = WhisperModel(
                 source,
                 device=device,
@@ -92,6 +98,8 @@ class TranscriptionEngine:
                 local_files_only=local_only,
             )
             self._models[cache_key] = model
+            logger.info("model_load_end model=%s device=%s compute_type=%s seconds=%.3f",
+                        model_name, device, compute_type, time.monotonic() - started)
             return model, device
 
     @staticmethod
@@ -136,6 +144,8 @@ class TranscriptionEngine:
             force_cpu=force_cpu,
         )
         progress("transcribing", 0.12, "Analyzing audio.")
+        started = time.monotonic()
+        logger.info("transcription_start model=%s device=%s", options["model"], device)
 
         language = options.get("language") or None
         task = options.get("task", "transcribe")
@@ -158,6 +168,9 @@ class TranscriptionEngine:
         duration = max(float(getattr(info, "duration", 0.0) or 0.0), 0.001)
         segments: list[dict[str, Any]] = []
         for segment in segments_iterator:
+            if not segments:
+                logger.info("transcription_first_segment seconds=%.3f audio_seconds=%.3f",
+                            time.monotonic() - started, duration)
             segments.append(
                 {
                     "id": int(segment.id),
@@ -174,6 +187,8 @@ class TranscriptionEngine:
             )
 
         text = " ".join(segment["text"] for segment in segments).strip()
+        logger.info("transcription_end seconds=%.3f audio_seconds=%.3f",
+                    time.monotonic() - started, duration)
         return {
             "text": text,
             "segments": segments,
@@ -208,6 +223,7 @@ class TranscriptionEngine:
                 ):
                     raise
                 self._drop_cuda_model(options["model"])
+                logger.warning("cuda_to_cpu model=%s", options["model"])
                 progress(
                     "loading_model",
                     0.1,

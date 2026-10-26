@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("localTranscriber", {
 });
 
 contextBridge.exposeInMainWorld("desktop", {
+  openLogsFolder: () => ipcRenderer.invoke("logs:open"),
   getExportDirectory: () => ipcRenderer.invoke("export-directory:get"),
   chooseExportDirectory: () => ipcRenderer.invoke("export-directory:choose"),
   resetExportDirectory: () => ipcRenderer.invoke("export-directory:reset"),

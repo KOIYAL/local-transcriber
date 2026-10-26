@@ -315,6 +315,17 @@ ipcMain.handle("export-directory:reset", () => {
   return null;
 });
 
+ipcMain.handle("logs:open", async (event) => {
+  if (!trustedSettingsSender(event) || !dataDirectory) return false;
+  try {
+    const directory = path.join(dataDirectory, "logs");
+    fs.mkdirSync(directory, { recursive: true });
+    return (await shell.openPath(directory)) === "";
+  } catch {
+    return false;
+  }
+});
+
 // With an export folder configured, downloads (TXT/SRT/VTT/JSON/SUMMARY)
 // save there silently; otherwise Electron's default save dialog appears.
 function installDownloadHandler(webSession) {

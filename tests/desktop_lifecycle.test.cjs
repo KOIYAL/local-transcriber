@@ -10,6 +10,8 @@ function harness(platform = 'linux', trayFailure = null, disk = new Map()) {
   const calls = { hidden: 0, quit: 0, warnings: 0, killed: 0, destroyed: 0 };
   const timers = new Map();
   const handlers = new Map();
+  const invokeHandlers = new Map();
+  calls.logActions = [];
   let choice = 0, recordingState = 'idle', window;
   const app = new EventEmitter();
   Object.assign(app, {
@@ -52,7 +54,12 @@ function harness(platform = 'linux', trayFailure = null, disk = new Map()) {
     app, BrowserWindow: Window, Tray,
     Menu: { buildFromTemplate: items => items },
     nativeImage: { createFromPath: value => value },
-    ipcMain: { handle() {}, on(channel, handler) { handlers.set(channel, handler); } },
+    ipcMain: { handle(channel, handler) { invokeHandlers.set(channel, handler); },
+      on(channel, handler) { handlers.set(channel, handler); } },
+    shell: { async openPath(directory) {
+      calls.logActions.push(['open', directory]);
+      return calls.openError || '';
+    } },
     dialog: { showMessageBoxSync() { calls.warnings++; return choice; } },
   };
   const context = vm.createContext({
@@ -68,6 +75,10 @@ function harness(platform = 'linux', trayFailure = null, disk = new Map()) {
       if (name === 'node:fs') return {
         readFileSync(file) { if (!disk.has(file)) throw new Error('missing'); return disk.get(file); },
         writeFileSync(file, value) { disk.set(file, value); },
+        mkdirSync(directory, options) {
+          calls.logActions.push(['mkdir', directory, options.recursive]);
+          if (calls.mkdirError) throw new Error('unavailable');
+        },
       };
       return require(name);
     },
@@ -82,6 +93,10 @@ function harness(platform = 'linux', trayFailure = null, disk = new Map()) {
   const run = code => vm.runInContext(code, context);
   run('loadSettings(); backendUrl = "http://127.0.0.1:1234"; backendProcess = fakeBackend; createWindow()');
   return { calls, timers, run, app,
+    invoke(channel, overrides = {}, ...args) {
+      return invokeHandlers.get(channel)({ sender: window.webContents,
+        senderFrame: window.webContents.mainFrame, ...overrides }, ...args);
+    },
     ipc(channel, args, overrides = {}) {
       const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame, ...overrides };
       let replies = 0, reply;
@@ -233,4 +248,49 @@ test('settings IPC rejects unrelated frames, keys and invalid values', () => {
   ]) assert.equal(h.ipc('settings:set', [key, value]), false);
   assert.equal(h.ipc('settings:get', ['exportDirectory']), null);
   assert.equal(h.ipc('settings:get', [key]), null);
+});
+
+for (const platform of ['linux', 'win32', 'darwin']) {
+  test(`logs IPC creates and opens only the configured logs folder on ${platform}`, async () => {
+    const h = harness(platform);
+    assert.equal(await h.invoke('logs:open'), false); // Backend not initialized.
+    assert.equal(h.calls.logActions.length, 0);
+    h.run('dataDirectory = "/fake/userData/日本語/data"');
+    assert.equal(await h.invoke('logs:open', {}, '/untrusted/path'), true);
+    assert.deepEqual(h.calls.logActions, [
+      ['mkdir', '/fake/userData/日本語/data/logs', true],
+      ['open', '/fake/userData/日本語/data/logs'],
+    ]);
+    for (const overrides of [{ sender: {} }, { senderFrame: null },
+      { senderFrame: { url: 'http://127.0.0.1:1234/' } }]) {
+      assert.equal(await h.invoke('logs:open', overrides), false);
+    }
+    h.run('mainWindow.webContents.mainFrame.url = "https://example.invalid/"');
+    assert.equal(await h.invoke('logs:open'), false);
+    assert.equal(h.calls.logActions.length, 2);
+  });
+}
+
+test('logs IPC reports directory and OS open failures without throwing', async () => {
+  const h = harness();
+  h.run('dataDirectory = "/fake/userData/data"');
+  h.calls.mkdirError = true;
+  assert.equal(await h.invoke('logs:open'), false);
+  assert.equal(h.calls.logActions.length, 1);
+  h.calls.mkdirError = false;
+  h.calls.openError = 'No application available';
+  assert.equal(await h.invoke('logs:open'), false);
+});
+
+test('preload exposes a fixed logs IPC call with no caller-supplied path', async () => {
+  const exposed = {}, calls = [];
+  vm.runInNewContext(fs.readFileSync('desktop/preload.js', 'utf8'), {
+    process: { argv: [] },
+    require: () => ({
+      contextBridge: { exposeInMainWorld(key, value) { exposed[key] = value; } },
+      ipcRenderer: { invoke(...args) { calls.push(args); return Promise.resolve(true); } },
+    }),
+  });
+  assert.equal(await exposed.desktop.openLogsFolder('/ignored'), true);
+  assert.deepEqual(calls, [['logs:open']]);
 });

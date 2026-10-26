@@ -18,6 +18,9 @@ const SETTINGS_STRINGS = {
     modelConfirm:
       "Switch from \"{current}\" to \"{recommended}\"? The download starts right away and transcription pauses until it finishes.",
     modelFailed: "The model check failed.",
+    logsLabel: "Diagnostics",
+    logsOpen: "Open logs folder",
+    logsFailed: "Could not open the logs folder.",
   },
   ja: {
     settingsTitle: "設定",
@@ -33,6 +36,9 @@ const SETTINGS_STRINGS = {
     modelConfirm:
       "「{current}」から「{recommended}」に切り替えますか？ダウンロードがすぐに始まり、完了するまで文字起こしは待機になります。",
     modelFailed: "モデルの確認に失敗しました。",
+    logsLabel: "診断ログ",
+    logsOpen: "ログフォルダを開く",
+    logsFailed: "ログフォルダを開けませんでした。",
   },
 };
 
@@ -45,6 +51,8 @@ if (settingsSection) {
   const exportReset = document.querySelector("#export-reset");
   const modelValue = document.querySelector("#model-value");
   const modelCheck = document.querySelector("#model-check");
+  const logsRow = document.querySelector("#logs-row");
+  const logsOpen = document.querySelector("#logs-open");
 
   const st = (key) => {
     const locale = window.LT?.getLocale?.() === "ja" ? "ja" : "en";
@@ -84,6 +92,20 @@ if (settingsSection) {
     });
   } else {
     exportRow.hidden = true;
+  }
+
+  logsRow.hidden = typeof window.desktop?.openLogsFolder !== "function";
+  if (!logsRow.hidden) {
+    logsOpen.addEventListener("click", async () => {
+      logsOpen.disabled = true;
+      try {
+        if (!await window.desktop.openLogsFolder()) throw new Error("logs_open_failed");
+      } catch {
+        window.LT?.showToast(st("logsFailed"));
+      } finally {
+        logsOpen.disabled = false;
+      }
+    });
   }
 
   modelCheck.addEventListener("click", async () => {

@@ -22,7 +22,7 @@ function harness({ locale = 'ja', appCheck = { ...latest, update_available: fals
     });
     return elements.get(id);
   }
-  for (const [id, key] of [['#model-check', 'modelCheck']]) {
+  for (const [id, key] of [['#model-check', 'modelCheck'], ['#logs-open', 'logsOpen']]) {
     element(id).dataset.settingsI18n = key;
   }
   const localeButton = element('#locale-button');
@@ -138,5 +138,40 @@ for (const failure of ['modelError', 'upgradeError']) {
     assert.equal(h.notices.at(-1), 'The model check failed.');
     assert.equal(h.element('#model-check').disabled, false);
     assert.equal(h.reloads(), 0);
+  });
+}
+
+test('logs row is hidden in browsers and localized in the desktop app', async () => {
+  const browser = harness(); await settle();
+  assert.equal(browser.element('#logs-row').hidden, true);
+  assert.equal(browser.element('#logs-open').listeners.click, undefined);
+  let calls = 0;
+  const desktop = harness({ desktop: {
+    getExportDirectory: async () => null,
+    openLogsFolder: async () => { calls++; return true; },
+  } });
+  await settle();
+  assert.equal(desktop.element('#logs-row').hidden, false);
+  assert.equal(desktop.element('#logs-open').textContent, 'ログフォルダを開く');
+  await desktop.element('#logs-open').listeners.click();
+  assert.equal(calls, 1);
+  assert.equal(desktop.element('#logs-open').disabled, false);
+  desktop.locale('en');
+  assert.equal(desktop.element('#logs-open').textContent, 'Open logs folder');
+});
+
+for (const throws of [false, true]) {
+  test(`logs open failure (${throws ? 'rejected IPC' : 'OS error'}) shows a localized message`, async () => {
+    const h = harness({ desktop: {
+      getExportDirectory: async () => null,
+      openLogsFolder: async () => { if (throws) throw new Error('IPC'); return false; },
+    } });
+    await settle();
+    await h.element('#logs-open').listeners.click();
+    assert.equal(h.notices.at(-1), 'ログフォルダを開けませんでした。');
+    assert.equal(h.element('#logs-open').disabled, false);
+    h.locale('en');
+    await h.element('#logs-open').listeners.click();
+    assert.equal(h.notices.at(-1), 'Could not open the logs folder.');
   });
 }

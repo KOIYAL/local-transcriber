@@ -133,13 +133,14 @@ def test_optional_diarization_runs_before_exports_and_preserves_fallback(manager
 
     calls = []
     manager.engine.transcribe = lambda *args: {
-        "text": "hello world", "segments": [
+        "text": "hello world", "duration": 2.0, "segments": [
             {"start": 0, "end": 1, "text": "hello"},
             {"start": 1, "end": 2, "text": "world"},
         ],
     }
 
-    def separate(path, progress):
+    def separate(path, progress, *, audio_seconds=None):
+        assert audio_seconds == 2.0
         calls.append(path)
         job = manager.list_recent()[0]
         assert job.status == "diarizing"
@@ -181,7 +182,8 @@ def test_child_diarization_failure_keeps_transcript_and_source(manager, tmp_path
     manager.diarizer, _ = fake_manager(tmp_path, worker=worker, timeout=2)
     manager.diarizer._provision()
     manager.engine.transcribe = lambda *args: {
-        "text": "hello", "segments": [{"start": 0, "end": 1, "text": "hello"}],
+        "text": "hello", "duration": 1.0,
+        "segments": [{"start": 0, "end": 1, "text": "hello"}],
     }
     path = media(tmp_path)
     job = manager.submit("meeting.wav", path, {"model": "tiny", "diarize": True})

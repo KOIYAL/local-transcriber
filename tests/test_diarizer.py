@@ -331,3 +331,29 @@ def test_archive_rejects_links_even_with_expected_archive_hash(tmp_path):
     assert manager.status()["status"] == "failed"
     assert not list(manager.directory.iterdir())
     assert not (tmp_path / "outside").exists()
+
+
+@pytest.mark.parametrize("seconds,maximum,expected", [
+    (None, 3600, 3600), (0, 3600, 120), (10, 3600, 120),
+    (20, 3600, 120), (60, 3600, 240), (1000, 3600, 3060),
+    (1200, 3600, 3600), (7200, 3600, 3600),
+    (None, 2, 2), (1, 2, 2),
+])
+def test_timeout_scales_with_audio_and_preserves_configured_ceiling(tmp_path, seconds, maximum, expected):
+    manager, _ = fake_manager(tmp_path, timeout=maximum)
+    assert manager._timeout_for_audio(seconds) == expected
+
+
+def test_diarize_uses_audio_timeout_for_deadline(tmp_path, monkeypatch):
+    manager, _ = fake_manager(tmp_path, worker=hanging_process_worker, timeout=10)
+    manager._provision()
+    durations = []
+
+    def timeout_for_audio(seconds):
+        durations.append(seconds)
+        return 0.01
+
+    monkeypatch.setattr(manager, "_timeout_for_audio", timeout_for_audio)
+    with pytest.raises(TimeoutError):
+        manager.diarize(tmp_path / "meeting.wav", lambda _: None, audio_seconds=45)
+    assert durations == [45]

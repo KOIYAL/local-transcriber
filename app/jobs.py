@@ -229,6 +229,7 @@ class JobManager:
                             job_id, "diarizing", 0.90 + 0.03 * max(0.0, min(1.0, fraction)),
                             "Separating speakers.",
                         ),
+                        audio_seconds=result.get("duration"),
                     )
                     result["segments"] = assign_speakers(result["segments"], turns)
                     result["text"] = to_txt(result["segments"]).strip()

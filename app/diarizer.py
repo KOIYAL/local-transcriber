@@ -218,7 +218,13 @@ class Diarizer:
             with self._lock:
                 self._status = "failed"
 
-    def diarize(self, path: Path, progress: Callable[[float], None]) -> list[dict]:
+    def _timeout_for_audio(self, audio_seconds: float | None) -> float:
+        if audio_seconds is None:
+            return self._timeout
+        return min(self._timeout, max(120, audio_seconds * 3 + 60))
+
+    def diarize(self, path: Path, progress: Callable[[float], None], *,
+                audio_seconds: float | None = None) -> list[dict]:
         if not self.status()["ready"]:
             raise RuntimeError("Speaker diarization models are not ready")
         # sherpa-onnx holds the GIL during inference. A thread cannot isolate it
@@ -234,7 +240,7 @@ class Diarizer:
             )
             started = False
             try:
-                deadline = time.monotonic() + self._timeout
+                deadline = time.monotonic() + self._timeout_for_audio(audio_seconds)
                 process.start()
                 started = True
                 sender.close()

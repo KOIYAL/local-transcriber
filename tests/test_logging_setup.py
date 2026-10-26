@@ -85,7 +85,7 @@ def test_diarization_events(diagnostics, manager, tmp_path, failure, event):
     directory, _ = diagnostics
     manager.engine.transcribe = lambda *a: {"text": "PRIVATE_TEXT", "segments": []}
 
-    def separate(*args):
+    def separate(*args, **kwargs):
         if failure:
             raise failure("PRIVATE_TEXT")
         return []

@@ -15,7 +15,7 @@ from app.config import Settings
 from app.exporters import to_txt, write_exports
 from app.diarizer import assign_speakers
 from app.transcriber import TranscriptionEngine
-from app.logging_setup import log_failure
+from app.logging_setup import dump_stacks, log_failure
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +42,8 @@ class JobRecord:
     summary: str | None = None
     summary_status: str = "none"  # none | queued | running | completed | failed
     summary_error: str | None = None
+    progress_at: float | None = None  # Monotonic clock, independent of wall-clock changes.
+    last_stall_dump: float | None = None
 
     def as_dict(self, include_result: bool = True) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -79,7 +81,8 @@ ACTIVE_STATUSES = {"queued", "loading_model", "transcribing", "diarizing", "fina
 
 
 class JobManager:
-    def __init__(self, settings: Settings, diarizer=None) -> None:
+    def __init__(self, settings: Settings, diarizer=None, *, clock=time.monotonic,
+                 watchdog_interval=30, stall_seconds=300, dump_interval=600) -> None:
         self.settings = settings
         self.diarizer = diarizer
         self.engine = TranscriptionEngine(settings)
@@ -95,6 +98,37 @@ class JobManager:
         )
         self._jobs: dict[str, JobRecord] = {}
         self._lock = threading.Lock()
+        self._clock = clock
+        self._stall_seconds = stall_seconds
+        self._dump_interval = dump_interval
+        self._watchdog_stop = threading.Event()
+        self._watchdog = threading.Thread(
+            target=self._watch, args=(watchdog_interval,), daemon=True,
+            name="transcriber-watchdog",
+        )
+        self._watchdog.start()
+
+    def _watch(self, interval: float) -> None:
+        while not self._watchdog_stop.wait(interval):
+            self._check_stalled()
+
+    def _check_stalled(self) -> None:
+        stalled = []
+        with self._lock:
+            now = self._clock()
+            for job in self._jobs.values():
+                if job.status not in ACTIVE_STATUSES - {"queued"} or job.progress_at is None:
+                    continue
+                elapsed = now - job.progress_at
+                if elapsed < self._stall_seconds:
+                    continue
+                if job.last_stall_dump is not None and now - job.last_stall_dump < self._dump_interval:
+                    continue
+                job.last_stall_dump = now
+                stalled.append((job.id, job.status, elapsed))
+        for job_id, stage, elapsed in stalled:
+            logger.warning("job_stalled job=%s stage=%s seconds=%.1f", job_id, stage, elapsed)
+            dump_stacks()
 
     def submit(
         self,
@@ -165,6 +199,7 @@ class JobManager:
             job.progress = max(0.0, min(progress, 1.0))
             job.message = message
             job.updated_at = utc_now()
+            job.progress_at = self._clock()
 
     def _run(self, job_id: str) -> None:
         with self._lock:
@@ -297,5 +332,7 @@ class JobManager:
             self._set_summary(job_id, "failed", str(exc))
 
     def shutdown(self) -> None:
+        self._watchdog_stop.set()
+        self._watchdog.join(timeout=1)
         self.executor.shutdown(wait=False, cancel_futures=False)
         self.summary_executor.shutdown(wait=False, cancel_futures=False)

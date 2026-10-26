@@ -58,18 +58,20 @@ jobs:
             "Understood. Anything else before we close?",
             "No, that's all. Thank you, everyone."
           )
-          $parts = @()
-          for ($i = 0; $i -lt $lines.Count; $i++) {
-            $s.SelectVoice($voices[$i % [Math]::Min(2, $voices.Count)])
-            $p = "part$i.wav"
-            $s.SetOutputToWaveFile((Join-Path $PWD $p)); $s.Speak($lines[$i]); $s.SetOutputToNull()
-            $parts += $p
+          # One file, voices alternating per line, a short pause between turns, 16 kHz mono
+          $pb = New-Object System.Speech.Synthesis.PromptBuilder
+          for ($round = 0; $round -lt 2; $round++) {
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              $pb.StartVoice($voices[$i % [Math]::Min(2, $voices.Count)])
+              $pb.AppendText($lines[$i])
+              $pb.EndVoice()
+              $pb.AppendBreak([TimeSpan]::FromMilliseconds(600))
+            }
           }
-          # Concatenate with ffmpeg (preinstalled on the runner) and pad to ~40 s with a little silence between turns
-          $list = ($parts | ForEach-Object { "file '$_'" }) -join "`n"
-          Set-Content concat.txt $list
-          ffmpeg -loglevel error -y -f concat -safe 0 -i concat.txt -af "apad=pad_dur=1" -ar 16000 -ac 1 meeting.wav
-          ffprobe -v error -show_entries format=duration -of csv=p=0 meeting.wav
+          $fmt = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono)
+          $s.SetOutputToWaveFile((Join-Path $PWD "meeting.wav"), $fmt); $s.Speak($pb); $s.SetOutputToNull()
+          $bytes = (Get-Item meeting.wav).Length
+          Write-Host ("meeting.wav: {0:N1} s" -f (($bytes - 44) / 32000))
 
       - name: Start the backend
         run: |

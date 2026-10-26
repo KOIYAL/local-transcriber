@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-transcriber"
-version = "0.7.2"
+version = "0.7.3"
 description = "Private, on-device audio and video transcription with local-LLM summaries."
 readme = "README.md"
 license = { text = "AGPL-3.0-only" }

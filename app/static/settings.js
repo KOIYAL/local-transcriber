@@ -6,6 +6,7 @@
 const SETTINGS_STRINGS = {
   en: {
     settingsTitle: "Settings",
+    versionLabel: "Version",
     exportLabel: "Export folder",
     exportAsk: "Ask every time",
     exportChange: "Change",
@@ -24,6 +25,7 @@ const SETTINGS_STRINGS = {
   },
   ja: {
     settingsTitle: "設定",
+    versionLabel: "バージョン",
     exportLabel: "書き出し先",
     exportAsk: "毎回ダイアログで選ぶ",
     exportChange: "変更",
@@ -50,6 +52,7 @@ if (settingsSection) {
   const exportChange = document.querySelector("#export-change");
   const exportReset = document.querySelector("#export-reset");
   const modelValue = document.querySelector("#model-value");
+  const versionValue = document.querySelector("#version-value");
   const modelCheck = document.querySelector("#model-check");
   const logsRow = document.querySelector("#logs-row");
   const logsOpen = document.querySelector("#logs-open");
@@ -73,6 +76,16 @@ if (settingsSection) {
     }
     refreshModel();
   };
+
+  const refreshVersion = async () => {
+    try {
+      const config = await (await fetch("/api/config")).json();
+      versionValue.textContent = config.version || "-";
+    } catch {
+      versionValue.textContent = "-";
+    }
+  };
+  refreshVersion();
 
   const refreshModel = async () => {
     try {

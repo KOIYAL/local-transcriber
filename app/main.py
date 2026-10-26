@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Local Transcriber",
-    version="0.7.2",
+    version="0.7.3",
     lifespan=lifespan,
 )
 app.mount(
@@ -228,6 +228,7 @@ def update_check(request: Request, force: bool = False) -> dict:
 async def config(request: Request) -> dict:
     setup = model_manager(request).status()
     return {
+        "version": request.app.version,
         "max_upload_mb": SETTINGS.max_upload_bytes // (1024 * 1024),
         "allowed_extensions": sorted(ALLOWED_EXTENSIONS),
         "setup": setup,

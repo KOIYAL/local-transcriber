@@ -558,7 +558,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 modelshelf は公式リリースの URL と SHA-256 を固定して取得し、実行できる場合に同梱します。
 PyInstaller でバックエンドを作り、Electron と案内をまとめて
 `dist/LocalTranscriber-<version>-linux-x64.tar.gz` を生成します。
-バージョンは `desktop/package.json` から読みます（現在は 0.7.2）。
+バージョンは `desktop/package.json` から読みます（現在は 0.7.3）。
 GitHub Actions は `workflow_dispatch` と `v*` タグで同じスクリプトを実行し、
 テストが通った後に artifact を保存します。GitHub Release への公開は行いません。
 

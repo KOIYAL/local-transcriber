@@ -150,10 +150,10 @@ def test_concurrent_checks_share_one_request(tmp_path):
 
 def test_api_uses_actual_app_version(tmp_path):
     with TestClient(app, base_url="http://127.0.0.1") as client:
-        app.state.update_checker = uc.UpdateChecker(tmp_path, lambda: release("v0.7.3"))
+        app.state.update_checker = uc.UpdateChecker(tmp_path, lambda: release("v0.7.4"))
         response = client.get("/api/update-check")
         assert response.status_code == 200
-        assert response.json()["current"] == app.version == "0.7.2"
+        assert response.json()["current"] == app.version == "0.7.3"
         assert response.json()["update_available"]
 
 
@@ -183,7 +183,7 @@ def test_force_respects_disabled_check_and_replaces_failed_cache(tmp_path, monke
 
     checker = uc.UpdateChecker(tmp_path, offline)
     assert not checker.check("0.7.2")["checked"]
-    checker.fetcher = lambda: release("v0.7.3")
+    checker.fetcher = lambda: release("v0.7.4")
     assert not checker.check("0.7.2")["checked"]
     assert checker.check("0.7.2", force=True)["checked"]
     checker.fetcher = lambda: pytest.fail("disabled must not fetch")

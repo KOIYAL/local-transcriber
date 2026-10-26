@@ -132,7 +132,7 @@ PYTHON=/usr/bin/python3.12 ./build-linux.sh
 The script installs `.[desktop,summary,diarize]` using the CPU wheel extra index,
 fetches a pinned, SHA-256-verified modelshelf asset, builds the PyInstaller
 backend and packages Electron. Output: `dist/LocalTranscriber-<version>-linux-x64.tar.gz`.
-The version comes from `desktop/package.json` (currently 0.7.2).
+The version comes from `desktop/package.json` (currently 0.7.3).
 Build on Ubuntu 22.04 for the intended baseline; builds made on newer systems
 may require newer system libraries. Cross-compilation is not supported.
 The workflow runs on `ubuntu-22.04` for manual dispatch and `v*` tags, tests first,

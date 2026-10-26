@@ -10,6 +10,7 @@ def test_health_and_config() -> None:
         assert response.status_code == 200
         payload = response.json()
         assert payload["max_upload_mb"] > 0
+        assert payload["version"] == app.version
         assert payload["setup"]["model"] in {"tiny", "base", "small", "medium", "turbo", "local"}
 
 

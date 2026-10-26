@@ -13,6 +13,7 @@ from app.config import Settings
 from app.system_info import total_memory_bytes
 
 
+CRASH_LOG_ENV = "LT_CRASH_LOG"
 _crash_file = None  # Keep the descriptor alive for native crashes and watchdog dumps.
 _handler = None
 
@@ -25,6 +26,9 @@ def setup_logging(settings: Settings, version: str) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     _crash_file = (directory / "crash.log").open("a", encoding="utf-8")
     faulthandler.enable(file=_crash_file, all_threads=True)
+    # spawn children (speaker diarization) do not inherit faulthandler; they
+    # read this variable and enable it themselves (enable_child_crash_log).
+    os.environ[CRASH_LOG_ENV] = str(directory / "crash.log")
     _handler = RotatingFileHandler(
         directory / "backend.log", maxBytes=1024 * 1024, backupCount=3,
         encoding="utf-8",
@@ -65,3 +69,16 @@ def log_failure(logger: logging.Logger, event: str, exc: Exception, *, job_id: s
         logger.error("%s job=%s exception=%s\nTraceback:\n%s",
                      event, job_id, type(exc).__name__, frames)
         exc = exc.__cause__ or (None if exc.__suppress_context__ else exc.__context__)
+
+
+def enable_child_crash_log() -> None:
+    """Record native crashes of a spawn child (e.g. sherpa-onnx) in crash.log."""
+    global _crash_file
+    path = os.environ.get(CRASH_LOG_ENV)
+    if not path or _crash_file is not None:
+        return
+    try:
+        _crash_file = open(path, "a", encoding="utf-8")
+        faulthandler.enable(file=_crash_file, all_threads=True)
+    except OSError:
+        _crash_file = None

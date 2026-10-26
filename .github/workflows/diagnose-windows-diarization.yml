@@ -133,6 +133,8 @@ jobs:
           }
           Run-Job $false 600 | Out-Null
           $ok = Run-Job $true 600
+          Write-Host "--- logs/backend.log (0.7.3+)"; Get-Content (Join-Path $dataDir "logs\backend.log") -Tail 40 -ErrorAction SilentlyContinue
+          Write-Host "--- logs/crash.log (0.7.3+)"; Get-Content (Join-Path $dataDir "logs\crash.log") -Tail 40 -ErrorAction SilentlyContinue
           Write-Host "--- backend.err (tail)"; Get-Content backend.err -Tail 40 -ErrorAction SilentlyContinue
           Write-Host "--- backend.out (tail)"; Get-Content backend.out -Tail 20 -ErrorAction SilentlyContinue
           if (-not $ok) { exit 1 }

@@ -131,6 +131,9 @@ def infer_speakers(path: Path, model_paths: tuple[Path, ...], progress,
 
 def _diarization_worker(connection, worker, path, model_paths):
     # A module-level target is required by spawn, including frozen executables.
+    from app.logging_setup import enable_child_crash_log
+
+    enable_child_crash_log()
     try:
         result = worker(path, model_paths, lambda value: connection.send(("progress", value)))
         connection.send(("result", result))

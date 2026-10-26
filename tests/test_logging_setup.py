@@ -128,3 +128,20 @@ def test_model_load_and_cuda_fallback_metadata(diagnostics, tmp_path, monkeypatc
     assert "model_load_end model=tiny device=cpu compute_type=int8 seconds=" in content
     assert "cuda_to_cpu model=tiny" in content
     assert "PRIVATE_" not in content
+
+
+def test_child_crash_log_uses_the_parent_path(tmp_path, monkeypatch):
+    import faulthandler
+
+    from app import logging_setup
+
+    crash = tmp_path / "crash.log"
+    monkeypatch.setenv(logging_setup.CRASH_LOG_ENV, str(crash))
+    monkeypatch.setattr(logging_setup, "_crash_file", None)
+    enabled = []
+    monkeypatch.setattr(faulthandler, "enable", lambda **kwargs: enabled.append(kwargs))
+    logging_setup.enable_child_crash_log()
+    assert crash.exists()
+    assert enabled and enabled[0]["all_threads"] is True
+    logging_setup._crash_file.close()
+    monkeypatch.setattr(logging_setup, "_crash_file", None)

@@ -12,6 +12,10 @@ on:
         description: "Release tag to test"
         required: false
         default: "v0.7.2"
+      data_dir_name:
+        description: "Data folder name (use non-ASCII, e.g. ユーザー荒川, to mimic a Japanese Windows user name)"
+        required: false
+        default: "data"
       zip_artifact_run:
         description: "Instead of a release, use the Windows artifact of this Actions run ID"
         required: false
@@ -76,9 +80,11 @@ jobs:
       # One step: Actions on Windows ends processes started in a step when it finishes.
       - name: Start the backend, prepare models, transcribe
         run: |
-          New-Item -ItemType Directory -Force data | Out-Null
-          $env:TRANSCRIBER_DATA_DIR = (Join-Path $PWD data)
-          $env:WHISPER_MODEL_DIR = (Join-Path $PWD data\models)
+          $dataDir = Join-Path $PWD "${{ inputs.data_dir_name }}"
+          New-Item -ItemType Directory -Force $dataDir | Out-Null
+          Write-Host "data dir: $dataDir"
+          $env:TRANSCRIBER_DATA_DIR = $dataDir
+          $env:WHISPER_MODEL_DIR = (Join-Path $dataDir models)
           $env:LT_UPDATE_CHECK = "off"
           $env:PYTHONUTF8 = "1"
           Start-Process -FilePath $env:BACKEND -ArgumentList "--port","18911" -RedirectStandardOutput backend.out -RedirectStandardError backend.err -WindowStyle Hidden

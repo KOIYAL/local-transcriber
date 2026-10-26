@@ -73,7 +73,8 @@ jobs:
           $bytes = (Get-Item meeting.wav).Length
           Write-Host ("meeting.wav: {0:N1} s" -f (($bytes - 44) / 32000))
 
-      - name: Start the backend
+      # One step: Actions on Windows ends processes started in a step when it finishes.
+      - name: Start the backend, prepare models, transcribe
         run: |
           New-Item -ItemType Directory -Force data | Out-Null
           $env:TRANSCRIBER_DATA_DIR = (Join-Path $PWD data)
@@ -85,8 +86,6 @@ jobs:
             try { Invoke-RestMethod http://127.0.0.1:18911/api/health | Out-Null; Write-Host "backend up"; break } catch { Start-Sleep 1 }
           }
 
-      - name: Prepare models
-        run: |
           for ($i = 0; $i -lt 180; $i++) {
             $s = Invoke-RestMethod http://127.0.0.1:18911/api/setup
             if ($s.ready) { break }; Start-Sleep 5
@@ -99,8 +98,6 @@ jobs:
           }
           Write-Host "diarize: $($d | ConvertTo-Json -Compress)"
 
-      - name: Transcribe without and with diarization
-        run: |
           function Run-Job($diarize, $limitSec) {
             $args = @("-s", "-F", "file=@meeting.wav")
             if ($diarize) { $args += @("-F", "diarize=true") }

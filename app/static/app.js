@@ -361,12 +361,17 @@ function renderAppUpdate() {
   }
 }
 
+function setAppUpdate(update) {
+  appUpdate = update;
+  renderAppUpdate();
+  return !updateNotice.hidden;
+}
+
 async function checkAppUpdate() {
   try {
     const response = await fetch("/api/update-check");
     if (!response.ok) return;
-    appUpdate = await response.json();
-    renderAppUpdate();
+    setAppUpdate(await response.json());
   } catch {
     // Optional: offline checks never interrupt transcription or setup.
   }
@@ -767,6 +772,7 @@ async function startSummarize() {
 // Minimal bridge for recorder.js: a recording that just stopped joins the
 // same progress/result pipeline as an uploaded file.
 window.LT = {
+  setAppUpdate,
   getDiarize,
   getGlossary: () => glossaryInput.value,
   getLocale: () => currentLocale,

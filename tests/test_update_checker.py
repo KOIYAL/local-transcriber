@@ -155,3 +155,65 @@ def test_api_uses_actual_app_version(tmp_path):
         assert response.status_code == 200
         assert response.json()["current"] == app.version == "0.7.2"
         assert response.json()["update_available"]
+
+
+@pytest.mark.parametrize("restart", [False, True])
+def test_force_bypasses_memory_and_disk_cache_and_persists_result(tmp_path, restart):
+    calls = []
+
+    def fetch():
+        calls.append(True)
+        return release("v0.7.1" if len(calls) == 1 else "v0.7.3")
+
+    checker = uc.UpdateChecker(tmp_path, fetch)
+    assert checker.check("0.7.2")["latest"] == "0.7.1"
+    if restart:
+        checker = uc.UpdateChecker(tmp_path, fetch)
+    assert checker.check("0.7.2")["latest"] == "0.7.1"
+    assert len(calls) == 1
+    assert checker.check("0.7.2", force=True)["latest"] == "0.7.3"
+    assert len(calls) == 2
+    assert checker.check("0.7.2")["latest"] == "0.7.3"
+    assert uc.UpdateChecker(tmp_path, lambda: pytest.fail("must use cache")).check("0.7.2")["latest"] == "0.7.3"
+
+
+def test_force_respects_disabled_check_and_replaces_failed_cache(tmp_path, monkeypatch):
+    def offline():
+        raise TimeoutError()
+
+    checker = uc.UpdateChecker(tmp_path, offline)
+    assert not checker.check("0.7.2")["checked"]
+    checker.fetcher = lambda: release("v0.7.3")
+    assert not checker.check("0.7.2")["checked"]
+    assert checker.check("0.7.2", force=True)["checked"]
+    checker.fetcher = lambda: pytest.fail("disabled must not fetch")
+    monkeypatch.setenv("LT_UPDATE_CHECK", "off")
+    assert not checker.check("0.7.2", force=True)["checked"]
+
+
+def test_force_failure_is_cached(tmp_path):
+    checker = uc.UpdateChecker(tmp_path, release)
+    assert checker.check("0.6.0")["checked"]
+
+    def offline():
+        raise TimeoutError()
+
+    checker.fetcher = offline
+    assert not checker.check("0.6.0", force=True)["checked"]
+    assert not uc.UpdateChecker(tmp_path, lambda: pytest.fail("must use cached failure")).check("0.6.0")["checked"]
+
+
+def test_api_force_parameter_bypasses_cache(tmp_path):
+    calls = []
+
+    def fetch():
+        calls.append(True)
+        return release()
+
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        app.state.update_checker = uc.UpdateChecker(tmp_path, fetch)
+        for query in ("", "?force=false", "?force=true"):
+            assert client.get("/api/update-check" + query).status_code == 200
+        assert len(calls) == 2
+        assert client.get("/api/update-check?force=invalid").status_code == 422
+        assert len(calls) == 2

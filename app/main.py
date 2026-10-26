@@ -219,9 +219,9 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/api/update-check")
-def update_check(request: Request) -> dict:
+def update_check(request: Request, force: bool = False) -> dict:
     # Run urllib in FastAPI's worker pool so recording chunks stay responsive.
-    return request.app.state.update_checker.check(request.app.version)
+    return request.app.state.update_checker.check(request.app.version, force=force)
 
 
 @app.get("/api/config")

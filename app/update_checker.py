@@ -73,7 +73,7 @@ class UpdateChecker:
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
-    def check(self, current: str) -> dict:
+    def check(self, current: str, force: bool = False) -> dict:
         result = {
             "current": current, "latest": None, "url": None,
             "update_available": False, "checked": False,
@@ -82,7 +82,7 @@ class UpdateChecker:
             return result
         with self._lock:
             now = self.clock()
-            entry = self._read_cache(now)
+            entry = None if force else self._read_cache(now)
             if entry is None:
                 try:
                     release = _release(self.fetcher())
